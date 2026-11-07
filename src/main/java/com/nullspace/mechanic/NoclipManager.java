@@ -23,7 +23,8 @@ import java.util.UUID;
  * и в конце отправляет игрока в NULLSPACE.
  */
 public final class NoclipManager {
-	private record Pending(int total, int left) {
+	/** level1 = true — провал глубже, на Уровень 1. */
+	private record Pending(int total, int left, boolean level1) {
 	}
 
 	private static final Map<UUID, Pending> PENDING = new HashMap<>();
@@ -42,8 +43,10 @@ public final class NoclipManager {
 			}
 			if (!secondTick || player.isSpectator()) continue;
 
-			if (NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey())) {
+			if (player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_0) {
 				checkDampCarpet(player);
+			} else if (NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey())) {
+				// на других уровнях свои правила
 			} else if (!player.isCreative()) {
 				rollFall(player);
 			}
@@ -56,7 +59,7 @@ public final class NoclipManager {
 		int min = Math.max(1, cfg.precursorMinTicks);
 		int max = Math.max(min, cfg.precursorMaxTicks);
 		int total = min + player.getRandom().nextInt(max - min + 1);
-		PENDING.put(player.getUuid(), new Pending(total, total));
+		PENDING.put(player.getUuid(), new Pending(total, total, false));
 	}
 
 	public static void forget(ServerPlayerEntity player) {
@@ -99,7 +102,7 @@ public final class NoclipManager {
 		if (seconds >= 3) {
 			DAMP_SECONDS.remove(id);
 			player.sendMessage(Text.translatable("message.nullspace.damp_gives").formatted(Formatting.GRAY), true);
-			PENDING.put(id, new Pending(30, 30));
+			PENDING.put(id, new Pending(30, 30, true));
 		}
 	}
 
@@ -124,9 +127,10 @@ public final class NoclipManager {
 
 		if (left <= 0) {
 			PENDING.remove(player.getUuid());
-			NullspaceTeleporter.sendToNullspace(player);
+			if (pending.level1()) NullspaceTeleporter.sendToLevel1(player);
+			else NullspaceTeleporter.sendToNullspace(player);
 		} else {
-			PENDING.put(player.getUuid(), new Pending(pending.total(), left));
+			PENDING.put(player.getUuid(), new Pending(pending.total(), left, pending.level1()));
 		}
 	}
 

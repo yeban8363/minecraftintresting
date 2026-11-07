@@ -1,6 +1,6 @@
 package com.nullspace.client;
 
-import com.nullspace.registry.ModSounds;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.sound.MovingSoundInstance;
@@ -16,8 +16,8 @@ import net.minecraft.world.LightType;
 public class LampHumSound extends MovingSoundInstance {
 	private final ClientPlayerEntity player;
 
-	public LampHumSound(ClientPlayerEntity player) {
-		super(ModSounds.LAMP_HUM, SoundCategory.AMBIENT, SoundInstance.createRandom());
+	public LampHumSound(ClientPlayerEntity player, SoundEvent sound) {
+		super(sound, SoundCategory.AMBIENT, SoundInstance.createRandom());
 		this.player = player;
 		this.repeat = true;
 		this.repeatDelay = 0;
@@ -44,6 +44,10 @@ public class LampHumSound extends MovingSoundInstance {
 		}
 		volume += (target - volume) * 0.05f;
 		pitch = 1.0f + (float) Math.sin(player.age * 0.013) * 0.01f;
+	}
+
+	public void stop() {
+		setDone();
 	}
 
 	@Override

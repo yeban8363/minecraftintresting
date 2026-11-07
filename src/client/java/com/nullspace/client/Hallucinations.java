@@ -37,7 +37,7 @@ public final class Hallucinations {
 	private static OtherClientPlayerEntity doppel;
 	private static int doppelAge;
 
-	private record FakeWall(BlockPos base, int expiresAt) {
+	private record FakeWall(BlockPos base, int height, int expiresAt) {
 	}
 
 	private static final List<FakeWall> WALLS = new ArrayList<>();
@@ -162,24 +162,30 @@ public final class Hallucinations {
 		Vec3d flat = new Vec3d(look.x, 0, look.z);
 		if (flat.lengthSquared() < 1.0E-4) return;
 		flat = flat.normalize();
+		boolean pools = world.getRegistryKey().getValue().getPath().equals("level_1");
 		for (int d = 6; d <= 10; d++) {
 			BlockPos base = BlockPos.ofFloored(player.getX() + flat.x * d, player.getY(), player.getZ() + flat.z * d);
-			if (world.getBlockState(base).isAir() && world.getBlockState(base.up()).isAir()
-					&& world.getBlockState(base.up(2)).isAir() && !world.getBlockState(base.down()).isAir()) {
-				world.setBlockState(base, ModBlocks.OFFICE_WALLPAPER_BASE.getDefaultState(), Block.NOTIFY_ALL);
-				world.setBlockState(base.up(), ModBlocks.OFFICE_WALLPAPER.getDefaultState(), Block.NOTIFY_ALL);
-				world.setBlockState(base.up(2), ModBlocks.OFFICE_WALLPAPER.getDefaultState(), Block.NOTIFY_ALL);
-				WALLS.add(new FakeWall(base, ticks + 200 + RANDOM.nextInt(200)));
-				return;
+			if (!world.getBlockState(base).isAir() || world.getBlockState(base.down()).isAir()) continue;
+			int height = 0;
+			while (height < 6 && world.getBlockState(base.up(height)).isAir()) height++;
+			if (height < 3) continue;
+			for (int dy = 0; dy < height; dy++) {
+				BlockState state;
+				if (pools) state = (dy == 1 ? ModBlocks.POOL_TILE_BLUE : ModBlocks.POOL_TILE).getDefaultState();
+				else state = (dy == 0 ? ModBlocks.OFFICE_WALLPAPER_BASE : ModBlocks.OFFICE_WALLPAPER).getDefaultState();
+				world.setBlockState(base.up(dy), state, Block.NOTIFY_ALL);
 			}
+			WALLS.add(new FakeWall(base, height, ticks + 200 + RANDOM.nextInt(200)));
+			return;
 		}
 	}
 
 	private static void restore(ClientWorld world, FakeWall wall) {
-		for (int dy = 0; dy < 3; dy++) {
+		for (int dy = 0; dy < wall.height(); dy++) {
 			BlockPos p = wall.base().up(dy);
 			BlockState state = world.getBlockState(p);
-			if (state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.OFFICE_WALLPAPER_BASE)) {
+			if (state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.OFFICE_WALLPAPER_BASE)
+					|| state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)) {
 				world.setBlockState(p, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 			}
 		}

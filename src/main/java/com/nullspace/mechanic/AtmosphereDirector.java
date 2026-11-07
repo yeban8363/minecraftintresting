@@ -6,6 +6,7 @@ import com.nullspace.registry.ModBlocks;
 import com.nullspace.registry.ModSounds;
 import com.nullspace.world.NullspaceDimensions;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.block.BlockState;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
@@ -13,6 +14,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
@@ -26,14 +29,16 @@ import java.util.UUID;
 
 /**
  * «Директор» атмосферы: раскладывает события по времени, чтобы пространство
- * ощущалось живым. Все звуки слышит только конкретный игрок.
+ * ощущалось живым. Чем ниже Стабильность, тем чаще и страшнее события.
  *
- * События:
- *  - шаги за стеной: повторяют движение игрока с запаздыванием в полсекунды;
- *  - стук: если долго стоять неподвижно у стены, с той стороны постучат;
- *  - дыхание за спиной;
- *  - отдалённые непонятные звуки;
- *  - тишина: обрывается всё, даже гул ламп. Обычно после этого не происходит ничего.
+ * Всегда:      шаги за стеной, отдалённые звуки, дыхание за спиной, тишина,
+ *              стук, если долго стоять у стены.
+ * Стаб. < 70:  обесточивание — лампы гаснут волной.
+ * Стаб. < 65:  Жилец в конце коридора.
+ * Стаб. < 60:  меловые метки меняются.
+ * Стаб. < 50:  кто-то бежит к тебе со спины — и шаги обрываются вплотную.
+ * Стаб. < 35:  шёпот твоего ника в чате; «<ты> присоединился к игре».
+ * Стаб. < 30:  во время обесточивания Жилец охотится.
  */
 public final class AtmosphereDirector {
 	private static final int ECHO_DELAY = 10;
@@ -46,6 +51,11 @@ public final class AtmosphereDirector {
 		int stillTicks;
 		boolean knocked;
 		Vec3d echoSide = Vec3d.ZERO;
+		// бегущие шаги
+		int runLeft;
+		Vec3d runPos = Vec3d.ZERO;
+		Vec3d runStep = Vec3d.ZERO;
+		long runSilenceAt;
 	}
 
 	private static final Map<UUID, State> STATES = new HashMap<>();
@@ -82,6 +92,12 @@ public final class AtmosphereDirector {
 		startSilence(player, s, ticks);
 	}
 
+	/** Запустить бегущие шаги (для команды). */
+	public static void forceRun(ServerPlayerEntity player) {
+		State s = STATES.computeIfAbsent(player.getUuid(), id -> new State());
+		startRun(player, s);
+	}
+
 	private static void tickPlayer(ServerPlayerEntity player, State s) {
 		ServerWorld world = player.getServerWorld();
 		long now = world.getTime();
@@ -93,6 +109,20 @@ public final class AtmosphereDirector {
 		s.trail.addLast(pos);
 		while (s.trail.size() > ECHO_DELAY + 1) s.trail.removeFirst();
 
+		// --- бегущие шаги идут даже сквозь тишину: тишина — их конец ---
+		if (s.runLeft > 0 && now % 5 == 0) {
+			float volume = 0.45f + 0.5f * (1f - s.runLeft / 12f);
+			playAt(player, stepsSound(player), s.runPos, volume, 1.1f + random.nextFloat() * 0.1f);
+			s.runPos = s.runPos.add(s.runStep);
+			if (--s.runLeft == 0) {
+				s.runSilenceAt = now + 4; // дать последнему шагу прозвучать
+			}
+		}
+		if (s.runSilenceAt > 0 && now >= s.runSilenceAt) {
+			s.runSilenceAt = 0;
+			startSilence(player, s, 20 * 12);
+		}
+
 		if (now < s.silenceUntil) return;
 
 		// --- стук: долго стоишь у стены ---
@@ -103,7 +133,6 @@ public final class AtmosphereDirector {
 			BlockPos wall = adjacentWall(world, player.getBlockPos().up());
 			if (wall != null) {
 				s.knocked = true;
-				// Звуковой файл сам содержит три удара с паузами.
 				playAt(player, ModSounds.KNOCK, Vec3d.ofCenter(wall), 0.9f, 1.0f);
 			}
 		}
@@ -111,36 +140,73 @@ public final class AtmosphereDirector {
 		// --- эпизод шагов за стеной ---
 		if (now < s.stepsUntil && moving && now % 8 == 0 && s.trail.size() > ECHO_DELAY) {
 			Vec3d echo = s.trail.peekFirst().add(s.echoSide);
-			playAt(player, ModSounds.STEPS_BEHIND_WALL, echo, 0.55f, 0.9f + random.nextFloat() * 0.15f);
+			playAt(player, stepsSound(player), echo, 0.55f, 0.9f + random.nextFloat() * 0.15f);
 		}
+
+		if (now < s.nextEvent) return;
 
 		// --- выбор следующего события ---
-		if (now >= s.nextEvent) {
-			// Чем ниже Стабильность, тем чаще что-то происходит.
-			float stability = StabilityManager.get(player);
-			double pace = 0.35 + 0.65 * (stability / StabilityManager.MAX);
-			s.nextEvent = now + (long) (20L * (20 + random.nextInt(40)) * pace);
+		float stability = StabilityManager.get(player);
+		double pace = 0.35 + 0.65 * (stability / StabilityManager.MAX);
+		s.nextEvent = now + (long) (20L * (20 + random.nextInt(40)) * pace);
+		int roll = random.nextInt(100);
 
-			if (stability < 60 && random.nextInt(100) < 25 && ChalkEvents.tryHaunt(player, random)) {
-				return;
-			}
-			int roll = random.nextInt(100);
-			if (roll < 35) {
-				s.stepsUntil = now + 20L * (6 + random.nextInt(10));
-				Vec3d look = player.getRotationVec(1.0f);
-				Vec3d side = new Vec3d(-look.z, 0, look.x).normalize().multiply(random.nextBoolean() ? 5 : -5);
-				s.echoSide = side;
-			} else if (roll < 60) {
-				Vec3d far = pos.add((random.nextDouble() - 0.5) * 60, 0, (random.nextDouble() - 0.5) * 60);
-				playAt(player, ModSounds.DISTANT, far, 2.5f, 0.7f + random.nextFloat() * 0.5f);
-			} else if (roll < 70) {
-				Vec3d behind = pos.subtract(player.getRotationVec(1.0f).multiply(1.6)).add(0, 1.5, 0);
-				playAt(player, ModSounds.BREATH, behind, 0.35f, 0.9f);
-			} else if (roll < 85) {
-				startSilence(player, s, 20 * (15 + random.nextInt(25)));
-			}
-			// иначе — ничего. Это тоже событие.
+		if (stability < 70 && roll < 9 && !BlackoutManager.isActive(player)) {
+			BlackoutManager.start(player, 20 * (12 + random.nextInt(10)));
+			if (stability < 30 && random.nextFloat() < 0.6f) TenantSpawner.spawnHunter(player);
+			return;
 		}
+		if (stability < 65 && roll >= 9 && roll < 17) {
+			if (TenantSpawner.spawnWatcher(player)) return;
+		}
+		if (stability < 60 && roll >= 17 && roll < 25) {
+			if (ChalkEvents.tryHaunt(player, random)) return;
+		}
+		if (stability < 50 && roll >= 25 && roll < 33) {
+			startRun(player, s);
+			return;
+		}
+		if (stability < 35 && roll >= 33 && roll < 37) {
+			player.sendMessage(Text.literal("…" + player.getGameProfile().getName() + "…")
+					.formatted(Formatting.DARK_GRAY, Formatting.ITALIC), false);
+			Vec3d behind = pos.subtract(player.getRotationVec(1.0f).multiply(1.2)).add(0, 1.6, 0);
+			playAt(player, ModSounds.WHISPER, behind, 0.7f, 0.9f);
+			return;
+		}
+		if (stability < 35 && roll >= 37 && roll < 40) {
+			player.sendMessage(Text.translatable("multiplayer.player.joined", player.getDisplayName())
+					.formatted(Formatting.YELLOW), false);
+			return;
+		}
+
+		int basic = random.nextInt(100);
+		if (basic < 35) {
+			s.stepsUntil = now + 20L * (6 + random.nextInt(10));
+			Vec3d look = player.getRotationVec(1.0f);
+			Vec3d side = new Vec3d(-look.z, 0, look.x);
+			s.echoSide = side.lengthSquared() > 1.0E-4
+					? side.normalize().multiply(random.nextBoolean() ? 5 : -5)
+					: new Vec3d(5, 0, 0);
+		} else if (basic < 60) {
+			Vec3d far = pos.add((random.nextDouble() - 0.5) * 60, 0, (random.nextDouble() - 0.5) * 60);
+			playAt(player, distantSound(player), far, 2.5f, 0.7f + random.nextFloat() * 0.5f);
+		} else if (basic < 70) {
+			Vec3d behind = pos.subtract(player.getRotationVec(1.0f).multiply(1.6)).add(0, 1.5, 0);
+			playAt(player, ModSounds.BREATH, behind, 0.35f, 0.9f);
+		} else if (basic < 85) {
+			startSilence(player, s, 20 * (15 + random.nextInt(25)));
+		}
+		// иначе — ничего. Это тоже событие.
+	}
+
+	/** Шаги начинаются в 18 блоках за спиной и бегут к тебе. Последний — вплотную. */
+	private static void startRun(ServerPlayerEntity player, State s) {
+		Vec3d look = player.getRotationVec(1.0f);
+		Vec3d flat = new Vec3d(look.x, 0, look.z);
+		flat = flat.lengthSquared() > 1.0E-4 ? flat.normalize() : new Vec3d(0, 0, 1);
+		s.runPos = player.getPos().subtract(flat.multiply(18));
+		s.runStep = flat.multiply(16.5 / 12.0);
+		s.runLeft = 12;
 	}
 
 	private static void startSilence(ServerPlayerEntity player, State s, int ticks) {
@@ -152,12 +218,24 @@ public final class AtmosphereDirector {
 		}
 	}
 
+	private static SoundEvent stepsSound(ServerPlayerEntity player) {
+		return player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_1 ? ModSounds.WET_STEPS : ModSounds.STEPS_BEHIND_WALL;
+	}
+
+	private static SoundEvent distantSound(ServerPlayerEntity player) {
+		return player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_1 ? ModSounds.WATER_DISTANT : ModSounds.DISTANT;
+	}
+
 	private static BlockPos adjacentWall(ServerWorld world, BlockPos pos) {
 		for (Direction dir : Direction.Type.HORIZONTAL) {
 			BlockPos p = pos.offset(dir);
-			if (world.getBlockState(p).isOf(ModBlocks.OFFICE_WALLPAPER)) return p;
+			if (isWall(world.getBlockState(p))) return p;
 		}
 		return null;
+	}
+
+	public static boolean isWall(BlockState state) {
+		return state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE);
 	}
 
 	private static void playAt(ServerPlayerEntity player, SoundEvent sound, Vec3d at, float volume, float pitch) {

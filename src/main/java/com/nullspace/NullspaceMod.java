@@ -3,7 +3,11 @@ package com.nullspace;
 import com.nullspace.command.NullspaceCommand;
 import com.nullspace.mechanic.AtmosphereDirector;
 import com.nullspace.mechanic.FlashlightLightManager;
+import com.nullspace.mechanic.BlackoutManager;
+import com.nullspace.mechanic.Level1Manager;
 import com.nullspace.mechanic.NoclipManager;
+import com.nullspace.registry.ModEntities;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import com.nullspace.mechanic.StabilityManager;
 import com.nullspace.network.StabilityPayload;
 import com.nullspace.registry.ModBlockEntities;
@@ -40,6 +44,7 @@ public class NullspaceMod implements ModInitializer {
 		ModBlocks.register();
 		ModItems.register();
 		ModBlockEntities.register();
+		ModEntities.register();
 		ModAttachments.register();
 		NullspaceDimensions.register();
 
@@ -54,7 +59,11 @@ public class NullspaceMod implements ModInitializer {
 			FlashlightLightManager.tick(server);
 			AtmosphereDirector.tick(server);
 			StabilityManager.tick(server);
+			Level1Manager.tick(server);
+			BlackoutManager.tick(server);
 		});
+
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> BlackoutManager.restoreAll());
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> StabilityManager.sync(handler.player));
 
@@ -62,6 +71,7 @@ public class NullspaceMod implements ModInitializer {
 			FlashlightLightManager.clear(handler.player);
 			NoclipManager.forget(handler.player);
 			AtmosphereDirector.forget(handler.player);
+			Level1Manager.forget(handler.player);
 		});
 
 		LOGGER.info("Reality is stable. For now.");

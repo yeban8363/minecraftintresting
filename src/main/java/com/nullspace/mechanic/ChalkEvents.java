@@ -51,7 +51,7 @@ public final class ChalkEvents {
 			if (!world.getBlockState(air).isAir()) continue;
 			for (Direction dir : Direction.Type.HORIZONTAL) {
 				BlockPos wall = air.offset(dir.getOpposite());
-				if (world.getBlockState(wall).isOf(ModBlocks.OFFICE_WALLPAPER)) {
+				if (AtmosphereDirector.isWall(world.getBlockState(wall))) {
 					world.setBlockState(air, ModBlocks.CHALK_MARK.getDefaultState()
 							.with(ChalkMarkBlock.FACING, dir)
 							.with(ChalkMarkBlock.STRANGER, true));

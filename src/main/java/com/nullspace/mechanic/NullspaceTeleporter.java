@@ -4,6 +4,8 @@ import com.nullspace.NullspaceConfig;
 import com.nullspace.NullspaceMod;
 import com.nullspace.registry.ModAttachments;
 import com.nullspace.registry.ModSounds;
+import com.nullspace.world.AquaticChunkGenerator;
+import com.nullspace.world.AquaticLayout;
 import com.nullspace.world.NullspaceDimensions;
 import com.nullspace.world.OfficeLayout;
 import net.minecraft.block.BlockState;
@@ -66,6 +68,44 @@ public final class NullspaceTeleporter {
 		player.sendMessage(Text.translatable(alreadyInside
 				? "message.nullspace.fell_again"
 				: "message.nullspace.fell").formatted(Formatting.YELLOW), true);
+	}
+
+	/**
+	 * Провалиться глубже — на Уровень 1. Игрок падает с потолка прямо в бассейн.
+	 * Точка возврата домой сохраняется прежняя.
+	 */
+	public static void sendToLevel1(ServerPlayerEntity player) {
+		MinecraftServer server = player.getServer();
+		if (server == null) return;
+		ServerWorld level1 = server.getWorld(NullspaceDimensions.LEVEL_1);
+		if (level1 == null) {
+			NullspaceMod.LOGGER.error("Измерение nullspace:level_1 не загружено");
+			return;
+		}
+		if (!NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey())) {
+			player.setAttached(ModAttachments.RETURN_POINT,
+					new ReturnPoint(player.getWorld().getRegistryKey(), player.getBlockPos()));
+		}
+
+		Random random = player.getRandom();
+		int spread = Math.max(AquaticLayout.HALL * 4, NullspaceConfig.get().spawnSpread);
+		int hx = (random.nextInt(spread * 2) - spread) / AquaticLayout.HALL;
+		int hz = (random.nextInt(spread * 2) - spread) / AquaticLayout.HALL;
+		if (level1.getChunkManager().getChunkGenerator() instanceof AquaticChunkGenerator gen) {
+			int[] hall = gen.layout(level1.getChunkManager().getNoiseConfig()).findPoolHall(hx, hz);
+			hx = hall[0];
+			hz = hall[1];
+		}
+		double x = hx * AquaticLayout.HALL + 8.5;
+		double z = hz * AquaticLayout.HALL + 8.5;
+		double y = AquaticLayout.CEILING_Y - 1.9;
+
+		cutAllSounds(player);
+		player.teleport(level1, x, y, z, player.getYaw(), 60.0f);
+		player.fallDistance = 0;
+		player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40, 0, false, false));
+		player.playSoundToPlayer(ModSounds.NOCLIP_FALL, SoundCategory.MASTER, 1.0f, 0.7f);
+		player.sendMessage(Text.translatable("message.nullspace.fell_level1").formatted(Formatting.AQUA), true);
 	}
 
 	/** Вернуть игрока туда, откуда он провалился. */

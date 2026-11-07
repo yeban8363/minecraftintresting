@@ -4,6 +4,7 @@ import com.nullspace.NullspaceMod;
 import com.nullspace.block.AnomalyDoorBlock;
 import com.nullspace.block.ChalkMarkBlock;
 import com.nullspace.block.DampCarpetBlock;
+import com.nullspace.block.DrainBlock;
 import com.nullspace.block.GeneratorBlock;
 import com.nullspace.block.PaperPileBlock;
 import com.nullspace.block.SupplyCrateBlock;
@@ -86,6 +87,18 @@ public final class ModBlocks {
 					.pistonBehavior(PistonBehavior.DESTROY)));
 	public static final Block ANOMALY_DOOR = register("anomaly_door",
 			new AnomalyDoorBlock(unbreakable(MapColor.OAK_TAN, BlockSoundGroup.WOOD)));
+
+	// ---------- Уровень 1 — AQUATIC ----------
+	public static final Block POOL_TILE = register("pool_tile",
+			new Block(unbreakable(MapColor.WHITE, BlockSoundGroup.STONE)));
+	public static final Block POOL_TILE_BLUE = register("pool_tile_blue",
+			new Block(unbreakable(MapColor.LIGHT_BLUE, BlockSoundGroup.STONE)));
+	public static final Block POOL_TILE_DARK = register("pool_tile_dark",
+			new Block(unbreakable(MapColor.GRAY, BlockSoundGroup.STONE)));
+	public static final Block POOL_LIGHT = register("pool_light",
+			new Block(unbreakable(MapColor.LIGHT_BLUE, BlockSoundGroup.GLASS).luminance(state -> 12)));
+	public static final Block DRAIN = register("drain",
+			new DrainBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
 
 	/** Метка мелом. Без предмета: ставится мелом. */
 	public static final Block CHALK_MARK = registerNoItem("chalk_mark",

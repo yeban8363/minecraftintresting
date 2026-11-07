@@ -62,6 +62,7 @@ public final class StabilityManager {
 				if (light < 5) delta -= 0.45f;
 				else if (light >= 12) delta += 0.25f;
 				if (AtmosphereDirector.isSilent(player)) delta -= 0.30f;
+				if (player.isSubmergedInWater()) delta -= 0.40f;
 				if (nearRunningGenerator(world, player.getBlockPos())) delta += 1.60f;
 				now = before + delta;
 			} else if (!inside) {

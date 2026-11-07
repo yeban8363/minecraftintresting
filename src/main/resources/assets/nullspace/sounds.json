@@ -95,5 +95,68 @@
     "sounds": [
       "nullspace:stadium_enter"
     ]
+  },
+  "ambient.pool": {
+    "sounds": [
+      "nullspace:pool_ambience"
+    ]
+  },
+  "ambient.wet_steps": {
+    "sounds": [
+      "nullspace:wet_step1",
+      "nullspace:wet_step2",
+      "nullspace:wet_step3"
+    ],
+    "subtitle": "subtitles.nullspace.wet_steps"
+  },
+  "ambient.water_distant": {
+    "sounds": [
+      "nullspace:water_splash",
+      "nullspace:water_whistle",
+      "nullspace:water_drip"
+    ],
+    "subtitle": "subtitles.nullspace.water_distant"
+  },
+  "entity.swimmer.near": {
+    "sounds": [
+      "nullspace:swimmer_near"
+    ],
+    "subtitle": "subtitles.nullspace.swimmer_near"
+  },
+  "entity.swimmer.grab": {
+    "sounds": [
+      "nullspace:swimmer_grab"
+    ],
+    "subtitle": "subtitles.nullspace.swimmer_grab"
+  },
+  "entity.tenant.vanish": {
+    "sounds": [
+      "nullspace:tenant_vanish"
+    ],
+    "subtitle": "subtitles.nullspace.tenant_vanish"
+  },
+  "entity.tenant.scream": {
+    "sounds": [
+      "nullspace:tenant_scream"
+    ],
+    "subtitle": "subtitles.nullspace.tenant_scream"
+  },
+  "event.blackout": {
+    "sounds": [
+      "nullspace:blackout"
+    ],
+    "subtitle": "subtitles.nullspace.blackout"
+  },
+  "event.power_on": {
+    "sounds": [
+      "nullspace:power_on"
+    ],
+    "subtitle": "subtitles.nullspace.power_on"
+  },
+  "block.drain_engine": {
+    "sounds": [
+      "nullspace:drain_engine"
+    ],
+    "subtitle": "subtitles.nullspace.drain_engine"
   }
 }
