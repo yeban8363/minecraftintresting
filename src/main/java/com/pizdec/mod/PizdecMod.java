@@ -69,7 +69,9 @@ public class PizdecMod implements ModInitializer {
 			Castle.ensureBuilt(s);
 			Prison.ensureBuilt(s);
 			Castle.ensureStalls(s);
+			Court.ensureBuilt(s);
 			Jail.onServerStart(s);
+			Court.onServerStart();
 			taxTimer = 0;
 			lawTimer = Laws.PERIOD - 20 * 15; // первый закон через 15 секунд
 			chaosTimer = 0;
@@ -77,13 +79,18 @@ public class PizdecMod implements ModInitializer {
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(this::tick);
-		ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> Jail.onEntityLoad(entity));
+		ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			Jail.onEntityLoad(entity);
+			Court.onEntityLoad(entity);
+			Tax.onEntityLoad(entity);
+		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> onJoin(handler.player));
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> {
 			jumps.remove(handler.player.getUuid());
 			Laws.forget(handler.player.getUuid());
 			Jail.onLeave(handler.player);
+			Tax.onLeave(handler.player);
 		});
 
 		registerPaidStuff();
@@ -112,6 +119,10 @@ public class PizdecMod implements ModInitializer {
 		}
 		Laws.tick(s);
 		Jail.tick(s);
+		Court.tick(s);
+		War.tick(s);
+		Tax.tick(s);
+		Jobs.tick(s);
 		Gui.tickAll(s);
 
 		if (chaosTimer >= nextChaos) {
@@ -152,6 +163,14 @@ public class PizdecMod implements ModInitializer {
 					Formatting.RED));
 		}
 		jumps.remove(p.getUuid());
+		Ranks.applyTeam(p);
+		st.names.put(p.getUuid(), p.getName().getString());
+		st.markDirty();
+		if (!Address.valid(p.getServer(), p.getUuid())) {
+			U.msg(p, U.t("🏠 У тебя нет прописки! Поставь табличку у дома и введи /adres рядом с ней, "
+					+ "иначе налоговая отправит тебя в тюрьму или на войну.", Formatting.RED));
+		}
+		if (War.exiled(p)) U.msg(p, U.t("⚔ Ты всё ещё на войне: " + War.secondsLeft(p) + " сек.", Formatting.DARK_RED));
 	}
 
 	// ------------------------------------------------------------------ платная жизнь и аресты
@@ -161,7 +180,8 @@ public class PizdecMod implements ModInitializer {
 	}
 
 	private static boolean royalArea(World world, BlockPos pos, PizdecState st) {
-		return world.getRegistryKey() == World.OVERWORLD && (Castle.inside(st, pos) || Prison.inside(st, pos));
+		return world.getRegistryKey() == World.OVERWORLD
+				&& (Castle.inside(st, pos) || Prison.inside(st, pos) || Court.inside(st, pos));
 	}
 
 	private static void registerPaidStuff() {
@@ -221,6 +241,7 @@ public class PizdecMod implements ModInitializer {
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldP, newP, alive) -> {
 			if (!alive) {
 				jumps.remove(newP.getUuid());
+				if (War.onDeath(newP)) return;
 				if (Jail.jailed(newP)) {
 					Jail.suppressEscape(newP);
 					U.msg(newP, U.t("Смерть не освобождает от наказания.", Formatting.GRAY));
@@ -260,6 +281,14 @@ public class PizdecMod implements ModInitializer {
 				Jail.arrest(p, "обидел шута", 30);
 				return ActionResult.FAIL;
 			}
+			if (tags.contains(Court.JUDGE_TAG) || tags.contains(Court.PROSECUTOR_TAG) || tags.contains(Court.LAWYER_TAG)) {
+				Jail.arrest(p, "неуважение к суду", 90);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Tax.TAX_CART_TAG)) {
+				Jail.arrest(p, "нападение на налоговую при исполнении", 90);
+				return ActionResult.FAIL;
+			}
 			if (tags.contains(Castle.SHOP_TAG) || tags.contains(Castle.CASINO_TAG) || tags.contains(Castle.UPGRADER_TAG)) {
 				Jail.arrest(p, "нападение на королевский бизнес", 60);
 				return ActionResult.FAIL;
@@ -282,6 +311,7 @@ public class PizdecMod implements ModInitializer {
 		PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, be) -> {
 			if (!(player instanceof ServerPlayerEntity p)) return;
 			Laws.onBroken(p);
+			Jobs.onBreak(p, state);
 			String id = Registries.BLOCK.getId(state.getBlock()).getPath();
 			if (id.contains("diamond_ore") || id.contains("emerald_ore") || id.equals("ancient_debris")) {
 				Money.give(p, 25, "ценная руда");
@@ -307,6 +337,11 @@ public class PizdecMod implements ModInitializer {
 				return;
 			}
 			Laws.onKill(p, killed);
+			Jobs.onKill(p, killed);
+			if (killed.getCommandTags().contains(War.ENEMY_TAG)) {
+				Money.give(p, 5, "трофей с войны");
+				return;
+			}
 			if (Laws.is("kill_tax")) return;
 			int base = killed instanceof Monster ? 4 : 1;
 			if (Laws.is("bounty")) base += 10;
@@ -339,7 +374,22 @@ public class PizdecMod implements ModInitializer {
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
 			if (world.isClient || !(player instanceof ServerPlayerEntity p)) return ActionResult.PASS;
 			var tags = entity.getCommandTags();
-			if (tags.contains(Jail.CARRIAGE_TAG)) return ActionResult.FAIL;
+			if (tags.contains(Jail.CARRIAGE_TAG) || tags.contains(Tax.TAX_CART_TAG)) return ActionResult.FAIL;
+			if (tags.contains(Court.JUDGE_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("⚖ Судья Фемида Петровна: «" + U.pick("Не мешайте правосудию.",
+							"Невиновных не бывает, бывают плохо проверенные.", "Взятки не беру. Только подарки.",
+							"Следующий!") + "»", Formatting.DARK_PURPLE));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Court.PROSECUTOR_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("Прокурор Злобин: «Я тебя запомнил.»", Formatting.DARK_RED));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Court.LAWYER_TAG)) return ActionResult.SUCCESS;
 			if (tags.contains(Castle.KING_TAG)) {
 				if (hand == Hand.MAIN_HAND) audience(p, entity.getBlockPos());
 				return ActionResult.SUCCESS;
@@ -358,8 +408,11 @@ public class PizdecMod implements ModInitializer {
 			}
 			if (tags.contains(Castle.INSPECTOR_TAG)) {
 				if (hand == Hand.MAIN_HAND) {
+					PizdecState.Address a = Address.valid(p.getServer(), p.getUuid()) ? Address.of(p) : null;
 					U.msg(p, U.t("Зинаида Петровна: «Ваш баланс " + Money.get(p) + ". Следующая проверка через "
-							+ Tax.secondsLeft(taxTimer) + " сек. Справки не выдаём, обед.»", Formatting.RED));
+							+ Tax.secondsLeft(taxTimer) + " сек. " + (a == null ? "Прописки у вас НЕТ, гражданин. /adres"
+							: "Прописаны по адресу «" + a.name + "».") + " В реестре " + PizdecState.get(p.getServer()).addresses.size()
+							+ " адресов. Справки не выдаём, обед.»", Formatting.RED));
 				}
 				return ActionResult.SUCCESS;
 			}
@@ -439,6 +492,7 @@ public class PizdecMod implements ModInitializer {
 			}
 		}
 		U.msg(p, U.t("👑 " + Castle.KING_NAME + ": «" + say + "»", Formatting.GOLD));
+		Ranks.tryKingPromotion(p, 0.02, "за приятную беседу");
 		w.spawnParticles(ParticleTypes.HAPPY_VILLAGER, kingPos.getX() + 0.5, kingPos.getY() + 2, kingPos.getZ() + 0.5, 15,
 				0.4, 0.4, 0.4, 0.1);
 		U.sound(p, SoundEvents.ENTITY_VILLAGER_CELEBRATE, 1f, 0.8f);
@@ -520,6 +574,49 @@ public class PizdecMod implements ModInitializer {
 		d.register(CommandManager.literal("kazino").executes(c -> remote(c.getSource().getPlayerOrThrow(), "casino")));
 		d.register(CommandManager.literal("upgrade").executes(c -> remote(c.getSource().getPlayerOrThrow(), "upgrade")));
 
+		d.register(CommandManager.literal("rabota").executes(c -> {
+			Jobs.JobsGui.open(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("zvaniya").executes(c -> {
+			Ranks.ShopGui.open(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("adres").executes(c -> {
+			Address.register(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("adresa").executes(c -> {
+			Address.list(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("advokat")
+				.executes(c -> {
+					ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+					U.msg(p, U.t("💼 Адвокаты: /advokat 1 — " + Court.LAWYERS[1] + " (30), /advokat 2 — " + Court.LAWYERS[2]
+							+ " (150), /advokat 3 — " + Court.LAWYERS[3] + " (500). Работают только в суде. "
+							+ "Договор заранее — в магазине.", Formatting.AQUA));
+					return 1;
+				})
+				.then(CommandManager.argument("tier", IntegerArgumentType.integer(1, 3)).executes(c -> {
+					Court.hireLawyer(c.getSource().getPlayerOrThrow(), IntegerArgumentType.getInteger(c, "tier"));
+					return 1;
+				})));
+		d.register(CommandManager.literal("vzyatka")
+				.then(CommandManager.argument("amount", IntegerArgumentType.integer(1)).executes(c -> {
+					Court.bribe(c.getSource().getPlayerOrThrow(), IntegerArgumentType.getInteger(c, "amount"));
+					return 1;
+				})));
+		d.register(CommandManager.literal("voyna").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			U.msg(p, U.t("⚔ Война идёт в " + War.DISTANCE + " блоках к востоку от короля"
+					+ (st.warBuilt ? " (" + U.coords(st.wx, st.wy, st.wz) + ")" : "") + ". "
+					+ (War.exiled(p) ? "Ты там. Держись ещё " + War.secondsLeft(p) + " сек." : "Ты пока в тылу."),
+					Formatting.DARK_RED));
+			return 1;
+		}));
+
 		d.register(CommandManager.literal("zalog").executes(c -> {
 			Jail.bail(c.getSource().getPlayerOrThrow());
 			return 1;
@@ -563,10 +660,26 @@ public class PizdecMod implements ModInitializer {
 											Jail.arrest(to, "указ админа", IntegerArgumentType.getInteger(c, "seconds"), true);
 											return 1;
 										}))))
+				.then(CommandManager.literal("war")
+						.then(CommandManager.argument("player", EntityArgumentType.player())
+								.executes(c -> {
+									War.exile(EntityArgumentType.getPlayer(c, "player"), "указ админа");
+									return 1;
+								})))
+				.then(CommandManager.literal("rank")
+						.then(CommandManager.argument("player", EntityArgumentType.player())
+								.then(CommandManager.argument("rank", IntegerArgumentType.integer(0, Ranks.MAX))
+										.executes(c -> {
+											Ranks.set(EntityArgumentType.getPlayer(c, "player"),
+													IntegerArgumentType.getInteger(c, "rank"));
+											return 1;
+										}))))
 				.then(CommandManager.literal("free")
 						.then(CommandManager.argument("player", EntityArgumentType.player())
 								.executes(c -> {
-									Jail.release(EntityArgumentType.getPlayer(c, "player"), "помилован админом");
+									ServerPlayerEntity fp = EntityArgumentType.getPlayer(c, "player");
+									Jail.release(fp, "помилован админом");
+									War.releaseByAdmin(fp);
 									return 1;
 								})))
 				.then(CommandManager.literal("give")

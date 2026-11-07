@@ -660,7 +660,7 @@ public final class Laws {
 				.tick(holdItem(Items.POTATO, "картошки"));
 
 		law("no_armor", "Броня — это роскошь", "носить броню имеют право только дворяне")
-				.tick(rule(40, Laws::hasArmor, "носил броню без дворянства"));
+				.tick(rule(40, p -> !Ranks.noble(p) && hasArmor(p), "носил броню без дворянства"));
 
 		law("pumpkin", "Тыква на голове обязательна", "снял тыкву — в тюрьму")
 				.each(p -> {
@@ -719,7 +719,7 @@ public final class Laws {
 				.tick(rule(20, p -> p.isOnGround() && stateUnder(p).isIn(BlockTags.BASE_STONE_OVERWORLD), "стоял на камне"));
 
 		law("high_ban", "Выше 90 блоков — только для дворян", "простолюдинам там делать нечего")
-				.tick(rule(20, p -> p.getY() > 90, "залез к дворянам"));
+				.tick(rule(20, p -> !Ranks.noble(p) && p.getY() > 90, "залез к дворянам"));
 
 		law("animals_royal", "Животные — собственность короля", "ударил животное — сел");
 
@@ -1016,6 +1016,50 @@ public final class Laws {
 
 		law("pay_click", "Платный ПКМ", "каждое нажатие по блоку — 1 бабло");
 
+		// ===== версия 1.3: суд, работа, звания, прописка, война =====
+
+		law("harsh_court", "Суд сегодня злой", "оправданий не будет, сроки чаще удваиваются");
+
+		law("no_court", "Суд на каникулах", "сажают сразу, без суда и следствия");
+
+		law("free_lawyer", "Бесплатная юридическая помощь", "всем обвиняемым — хороший адвокат за счёт казны");
+
+		law("salary_freeze", "Зарплаты заморожены", "в ближайшую получку никто ничего не получит");
+
+		law("double_salary", "Двойная зарплата", "ближайшая получка ×2. Король что-то перепутал");
+
+		law("mobilization", "Частичная мобилизация", "один случайный гражданин отправляется на войну")
+				.start(s -> {
+					List<ServerPlayerEntity> ps = U.free(s);
+					if (!ps.isEmpty()) War.exile(U.pick(ps), "мобилизация");
+				});
+
+		law("address_check", "Проверка прописки", "у кого нет адреса — в тюрьму или на войну")
+				.each(p -> {
+					if (Address.valid(p.getServer(), p.getUuid())) return;
+					if (U.R.nextBoolean()) Jail.arrest(p, "проживание без прописки", 30);
+					else War.exile(p, "проживание без прописки");
+				});
+
+		law("noble_day", "День дворянства", "дворянам +20 бабла, простолюдинам штраф 10 за простоту")
+				.each(p -> {
+					if (Ranks.noble(p)) Money.give(p, 20, "день дворянства");
+					else Money.fine(p, 10, "недостаточно благородное происхождение");
+				});
+
+		law("peasant_revolt", "Крестьянское восстание", "простым +30 бабла, дворянам −30. Король в шоке")
+				.each(p -> {
+					if (Ranks.get(p) <= 1) Money.give(p, 30, "экспроприация");
+					else if (Ranks.noble(p)) Money.fine(p, 30, "экспроприация экспроприаторов");
+				});
+
+		law("work_day", "Трудовая повинность", "безработные к концу указа сядут за тунеядство (/rabota)")
+				.end(s -> {
+					for (ServerPlayerEntity p : U.free(s)) {
+						if (Jobs.jobOf(p) == null) Jail.arrest(p, "тунеядство", 30);
+					}
+				});
+
 		law("royal_shopping", "Шопинг обязателен", "кто ничего не купит в магазине за 40 секунд — в тюрьму")
 				.end(quota("buys", 1, "покупки в магазине"));
 
@@ -1139,6 +1183,7 @@ public final class Laws {
 		}
 
 		l.start.accept(s);
+		Ranks.onDecree(s);
 	}
 
 	public static void tick(MinecraftServer s) {

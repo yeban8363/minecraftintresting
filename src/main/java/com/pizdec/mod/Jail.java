@@ -34,6 +34,10 @@ public final class Jail {
 		public String crime;
 		public int cell;
 		public boolean transporting;
+		/** Везут в суд (а не сразу в камеру). */
+		public boolean needsTrial;
+		/** Сейчас идёт суд. */
+		public boolean trial;
 
 		public Record(int ticks, String crime, int cell) {
 			this.ticks = ticks;
@@ -54,6 +58,7 @@ public final class Jail {
 		final ServerBossBar bar = new ServerBossBar(U.t("🚔 Королевская карета выехала", Formatting.RED),
 				BossBar.Color.RED, BossBar.Style.NOTCHED_10);
 		double startDist = 1;
+		boolean toCourt;
 
 		Ride(UUID player, Vec3d pos) {
 			this.player = player;
@@ -78,6 +83,11 @@ public final class Jail {
 
 	// ------------------------------------------------------------------ состояние
 
+	/** В тюрьме, в суде, в карете или на войне. */
+	public static boolean busy(ServerPlayerEntity p) {
+		return jailed(p) || War.exiled(p);
+	}
+
 	public static boolean jailed(ServerPlayerEntity p) {
 		return PizdecState.get(p.getServer()).jail.containsKey(p.getUuid());
 	}
@@ -95,7 +105,7 @@ public final class Jail {
 
 	/** Нарушение действующего указа. Первые 5 секунд указа — время на ознакомление. */
 	public static void violation(ServerPlayerEntity p, String what) {
-		if (jailed(p) || p.isCreative() || p.isSpectator()) return;
+		if (busy(p) || p.isCreative() || p.isSpectator()) return;
 		if (!Laws.graceOver()) {
 			U.bar(p, U.t("⚠ Нарушение указа! У тебя ещё пара секунд на ознакомление, потом — тюрьма", Formatting.YELLOW));
 			return;
@@ -114,6 +124,11 @@ public final class Jail {
 		if (!st.prisonBuilt || p.isSpectator()) return;
 		if (!force && p.isCreative()) return;
 		int ticks = seconds * 20 * Laws.sentenceMult();
+		if (War.exiled(p)) {
+			// на войне не арестовывают — там и так плохо
+			War.exile(p, crime);
+			return;
+		}
 
 		Record r = st.jail.get(p.getUuid());
 		if (r != null) {
@@ -153,6 +168,7 @@ public final class Jail {
 		}
 
 		r = new Record(ticks, crime, U.R.nextInt(Prison.CELLS));
+		r.needsTrial = !force && st.courtBuilt && ticks > 20 * 10 && !Laws.is("no_court");
 		st.jail.put(p.getUuid(), r);
 		st.arrests++;
 		st.markDirty();
@@ -163,9 +179,31 @@ public final class Jail {
 		U.sound(p, SoundEvents.EVENT_RAID_HORN, 2f, 1.4f);
 
 		if (p.getServerWorld() != s.getOverworld() || !startRide(p, st)) {
-			toCell(p, st, r);
 			U.msg(p, U.t("Карета пробила портал и доставила тебя лично.", Formatting.GRAY));
+			deliver(p, st, r);
 		}
+	}
+
+	/** Привезли: в суд или сразу в камеру. */
+	private static void deliver(ServerPlayerEntity p, PizdecState st, Record r) {
+		if (r.needsTrial && st.courtBuilt) {
+			r.needsTrial = false;
+			Court.begin(p, r);
+		} else {
+			toCell(p, st, r);
+		}
+	}
+
+	public static void toCellAfterTrial(ServerPlayerEntity p, Record r) {
+		toCell(p, PizdecState.get(p.getServer()), r);
+	}
+
+	/** Убрать запись без телепортов и объявлений (например, при ссылке на войну). */
+	public static void releaseQuietly(ServerPlayerEntity p) {
+		PizdecState st = PizdecState.get(p.getServer());
+		st.jail.remove(p.getUuid());
+		st.markDirty();
+		cancelRide(p.getUuid());
 	}
 
 	public static void release(ServerPlayerEntity p, String why) {
@@ -222,6 +260,7 @@ public final class Jail {
 
 	private static boolean startRide(ServerPlayerEntity p, PizdecState st) {
 		Ride r = new Ride(p.getUuid(), Prison.gate(st));
+		r.toCourt = st.jail.get(p.getUuid()).needsTrial;
 		r.startDist = Math.max(1, horiz(p.getPos(), r.pos));
 		r.bar.addPlayer(p);
 		rides.put(p.getUuid(), r);
@@ -317,7 +356,10 @@ public final class Jail {
 					|| (r.cart != null && (r.cart.isRemoved() || r.horse.isRemoved()));
 			if (broken) {
 				r.removeEntities();
-				if (rec != null) rec.transporting = false; // доставим при следующей проверке
+				if (rec != null) {
+					rec.transporting = false; // доставим при следующей проверке
+					rec.needsTrial = false;
+				}
 				it.remove();
 				continue;
 			}
@@ -338,7 +380,7 @@ public final class Jail {
 					if (r.cart == null) {
 						r.removeEntities();
 						it.remove();
-						toCell(p, st, rec);
+						deliver(p, st, rec);
 						continue;
 					}
 				} else {
@@ -363,8 +405,9 @@ public final class Jail {
 					r.cart.refreshPositionAndAngles(p.getX(), p.getY(), p.getZ(), r.cart.getYaw(), 0f);
 					r.pos = p.getPos();
 					p.startRiding(r.cart, true);
-					r.dir = flatDir(r.pos, Prison.gate(st));
-					r.startDist = Math.max(1, horiz(r.pos, Prison.gate(st)));
+					Vec3d dest = r.toCourt ? Court.gate(st) : Prison.gate(st);
+					r.dir = flatDir(r.pos, dest);
+					r.startDist = Math.max(1, horiz(r.pos, dest));
 					r.phase = 2;
 					r.t = 0;
 					U.bar(p, U.t("🚔 Кучер: «Садись, поехали. Разговаривать будешь с судьёй.»", Formatting.GOLD));
@@ -376,16 +419,16 @@ public final class Jail {
 
 			// phase 2: везём в тюрьму
 			if (p.getVehicle() != r.cart) p.startRiding(r.cart, true);
-			Vec3d gate = Prison.gate(st);
+			Vec3d gate = r.toCourt ? Court.gate(st) : Prison.gate(st);
 			double left = horiz(r.pos, gate);
-			r.bar.setName(U.t("🚔 Едем в тюрьму: " + (int) left + " м", Formatting.DARK_RED));
+			r.bar.setName(U.t((r.toCourt ? "⚖ Едем в суд: " : "🚔 Едем в тюрьму: ") + (int) left + " м", Formatting.DARK_RED));
 			r.bar.setPercent((float) Math.max(0, Math.min(1, left / r.startDist)));
 			siren(p, r.t);
 			if (left < 2 || r.t > 20 * 15) {
 				if (left >= 2) U.msg(p, U.t("🚔 Карета включила мигалку и телепортировалась. Так тоже можно.", Formatting.GRAY));
 				r.removeEntities();
 				it.remove();
-				toCell(p, st, rec);
+				deliver(p, st, rec);
 				continue;
 			}
 			r.dir = flatDir(r.pos, gate);
@@ -406,7 +449,11 @@ public final class Jail {
 		rides.clear();
 		releasedAt.clear();
 		lastEscape.clear();
-		for (Record r : PizdecState.get(s).jail.values()) r.transporting = false;
+		for (Record r : PizdecState.get(s).jail.values()) {
+			r.transporting = false;
+			r.trial = false;
+			r.needsTrial = false;
+		}
 	}
 
 	/** После смерти или входа в игру игрока просто возвращают в камеру, без штрафа за «побег». */
@@ -417,7 +464,11 @@ public final class Jail {
 	public static void onLeave(ServerPlayerEntity p) {
 		cancelRide(p.getUuid());
 		Record r = PizdecState.get(p.getServer()).jail.get(p.getUuid());
-		if (r != null) r.transporting = false;
+		if (r != null) {
+			r.transporting = false;
+			r.trial = false;
+			r.needsTrial = false;
+		}
 	}
 
 	// ------------------------------------------------------------------ отсидка
@@ -430,7 +481,7 @@ public final class Jail {
 		List<ServerPlayerEntity> toRelease = new ArrayList<>();
 		for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) {
 			Record r = st.jail.get(p.getUuid());
-			if (r == null || r.transporting || !p.isAlive()) continue;
+			if (r == null || r.transporting || r.trial || !p.isAlive()) continue;
 			r.ticks--;
 			if (r.ticks <= 0) {
 				toRelease.add(p);

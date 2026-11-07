@@ -47,7 +47,7 @@ public final class U {
 	public static List<ServerPlayerEntity> free(MinecraftServer s) {
 		List<ServerPlayerEntity> out = new ArrayList<>();
 		for (ServerPlayerEntity p : players(s)) {
-			if (!Jail.jailed(p)) out.add(p);
+			if (!Jail.busy(p)) out.add(p);
 		}
 		return out;
 	}

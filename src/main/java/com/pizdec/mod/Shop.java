@@ -41,7 +41,6 @@ public final class Shop extends Gui {
 		add(Items.STONE_BRICKS, 32, 20);
 		add(Items.GLASS, 16, 20);
 		add(Items.WHITE_BED, 1, 40);
-		add(Items.CHEST, 2, 15);
 		// ресурсы
 		add(Items.IRON_INGOT, 4, 70);
 		add(Items.GOLD_INGOT, 4, 110);
@@ -73,12 +72,14 @@ public final class Shop extends Gui {
 		add(Items.TOTEM_OF_UNDYING, 1, 1200);
 		add(Items.ELYTRA, 1, 6000);
 		add(Items.TNT, 1, 120);
-		add(Items.CARVED_PUMPKIN, 1, 15);
 		// особое
 		add(Gui::freeCard, 350);
 		add(Gui::fakeCard, 60);
 		add(Gui::petRock, 5);
 		add(Gui::fakeDiamond, 20);
+		add(() -> Court.lawyerContract(1), 40);
+		add(() -> Court.lawyerContract(2), 180);
+		add(() -> Court.lawyerContract(3), 600);
 	}
 
 	private Shop(int syncId, PlayerInventory pinv, SimpleInventory inv, ServerPlayerEntity p) {
@@ -95,10 +96,11 @@ public final class Shop extends Gui {
 	}
 
 	/** Цена с учётом текущего указа. */
-	private static int price(int base) {
-		if (Laws.is("shop_sale")) return Math.max(1, base / 2);
-		if (Laws.is("shop_inflation")) return base * 3;
-		return base;
+	private int price(int base) {
+		double p = base * (1 - Ranks.shopDiscount(player));
+		if (Laws.is("shop_sale")) p /= 2;
+		if (Laws.is("shop_inflation")) p *= 3;
+		return Math.max(1, (int) Math.round(p));
 	}
 
 	private void redraw() {
@@ -113,6 +115,8 @@ public final class Shop extends Gui {
 		String note = Laws.is("shop_sale") ? "§aСейчас распродажа −50%!"
 				: Laws.is("shop_inflation") ? "§cИнфляция: цены ×3" : "§7Цены утверждены королём";
 		set(48, icon(Items.PAPER, note));
+		set(47, icon(Items.GOLDEN_HELMET, "§d👑 Магазин званий", "§7Твоё звание: " + Ranks.name(player),
+				"§7Скидка по званию: " + (int) (Ranks.shopDiscount(player) * 100) + "%"));
 		set(53, icon(Items.BARRIER, "§cЗакрыть"));
 	}
 
@@ -120,6 +124,10 @@ public final class Shop extends Gui {
 	protected void click(int slot, int button) {
 		if (slot == 53) {
 			close();
+			return;
+		}
+		if (slot == 47) {
+			Ranks.ShopGui.open(player);
 			return;
 		}
 		if (slot >= OFFERS.size() || slot >= 45) return;

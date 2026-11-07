@@ -310,10 +310,10 @@ public final class Castle {
 				U.t("👑 " + KING_NAME, Formatting.GOLD, Formatting.BOLD), VillagerProfession.CLERIC);
 	}
 
-	private static void npc(ServerWorld world, double x, double y, double z, float yaw, String tag,
+	static VillagerEntity npc(ServerWorld world, double x, double y, double z, float yaw, String tag,
 			net.minecraft.text.Text name, VillagerProfession prof) {
 		VillagerEntity v = EntityType.VILLAGER.create(world);
-		if (v == null) return;
+		if (v == null) return null;
 		v.refreshPositionAndAngles(x, y, z, yaw, 0f);
 		v.setHeadYaw(yaw);
 		v.setBodyYaw(yaw);
@@ -325,6 +325,7 @@ public final class Castle {
 		v.setCustomNameVisible(true);
 		v.addCommandTag(tag);
 		world.spawnEntity(v);
+		return v;
 	}
 
 	/** Если короля убили (/kill и т.п.), а рядом есть игроки — сажаем нового. */
