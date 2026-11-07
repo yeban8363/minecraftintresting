@@ -154,17 +154,16 @@ public final class Docs {
 		String[] w = p.fio.split(" ");
 		String fam = w.length > 0 ? w[0] : "", name = w.length > 1 ? w[1] : "", otch = w.length > 2 ? w[2] : "";
 		List<String> pages = new ArrayList<>();
-		pages.add("§4§l  КОРОЛЕВСТВО\n     ПИЗДЕЦ§r\n\n§l    ПАСПОРТ\n   гражданина§r\n\n§8Серия:§0 " + p.series + "\n§8Номер:§0 "
-				+ String.format("%06d", p.number) + "\n\n§8Выдан:§0 " + DEPT + "\n§8Дата выдачи:§0 " + p.issued
+		pages.add("§4§l   КОРОЛЕВСТВО\n       ПИЗДЕЦ§r\n§l      ПАСПОРТ\n    гражданина§r\n\n§8Серия:§0 " + p.series + "\n§8Номер:§0 "
+				+ String.format("%06d", p.number) + "\n§8Выдан:§0 МФЦ\n«Мои документы»\n§8Дата выдачи:§0\n" + p.issued
 				+ "\n§8Код подразд.:§0 " + DEPT_CODE);
-		pages.add("§8Фамилия§0\n§l" + fam + "§r\n§8Имя§0\n§l" + name + "§r\n§8Отчество§0\n§l" + otch + "§r\n§8Пол:§0 " + p.gender
-				+ "\n§8Дата рождения:§0\n" + p.birth + "\n§8Место рождения:§0\nКоролевство Пиздец, г. Спавн\n\n§8[ФОТО 3×4]§0  §oподпись§r\n§o"
-				+ shortFio(p));
+		pages.add("§8Фамилия:§0\n§l" + fam + "§r\n§8Имя:§0 §l" + name + "§r\n§8Отчество:§0\n§l" + otch + "§r\n§8Пол:§0 " + p.gender
+				+ "\n§8Дата рождения:§0\n" + p.birth + "\n§8Место рождения:§0\nг. Спавн\n§8[ФОТО 3×4]§0 §o" + shortFio(p) + "§r");
 		if (p.regName.isEmpty()) {
-			pages.add("§l МЕСТО ЖИТЕЛЬСТВА§r\n\n§8Регистрация по месту жительства отсутствует.§0\n\nОформить: МФЦ, окно №2\n(нужна табличка-адрес, /adres)");
+			pages.add("§l МЕСТО ЖИТЕЛЬСТВА§r\n\n§8Регистрация отсутствует.§0\n\nОформить: МФЦ, окно №2\n(нужна табличка-адрес и /adres)");
 		} else {
 			pages.add("§l МЕСТО ЖИТЕЛЬСТВА§r\n\n§8Зарегистрирован:§0\n«" + p.regName + "»\n§8Координаты:§0\n" + p.regX + " " + p.regY + " "
-					+ p.regZ + "\n§8Дата регистрации:§0 " + p.regDate + "\n\n§8Отдел регистрации\nКоролевского МФЦ\n   [ М.П. ]§0");
+					+ p.regZ + "\n§8Дата:§0 " + p.regDate + "\n\n§8Отдел регистрации\n   [ М.П. ]§0");
 		}
 		PizdecState.Property prop = st.properties.get(owner);
 		List<String> cr = st.crimes.getOrDefault(owner, List.of());
