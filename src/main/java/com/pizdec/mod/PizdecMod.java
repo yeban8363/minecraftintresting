@@ -128,6 +128,8 @@ public class PizdecMod implements ModInitializer {
 		Docs.tick(s);
 		Mfc.tick(s);
 		Fpv.tick(s);
+		News.tick(s);
+		Elections.tick(s);
 		Court.tick(s);
 		War.tick(s);
 		Tax.tick(s);
@@ -335,6 +337,10 @@ public class PizdecMod implements ModInitializer {
 					return ActionResult.FAIL;
 				}
 			}
+			if (tags.contains(Castle.SPEAKER_TAG) || tags.contains(Castle.CEC_TAG) || tags.contains(Castle.PARTY_TAG)) {
+				Jail.arrest(p, "нападение на политика (вмешательство в демократию)", 120);
+				return ActionResult.FAIL;
+			}
 			if (tags.contains(Fpv.TAG)) return ActionResult.FAIL;
 			if (tags.contains(Castle.GATE_GUARD_TAG) || tags.contains(Castle.CAPTAIN_TAG)) {
 				Jail.arrest(p, "нападение на стражу", 120);
@@ -485,6 +491,30 @@ public class PizdecMod implements ModInitializer {
 				if (hand == Hand.MAIN_HAND) Jobs.JobsGui.open(p);
 				return ActionResult.SUCCESS;
 			}
+			if (tags.contains(Castle.CEC_TAG)) {
+				if (hand == Hand.MAIN_HAND) Elections.BallotGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.SPEAKER_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					PizdecState pst = PizdecState.get(p.getServer());
+					U.msg(p, U.t("🏛 Спикер Голосуев: «" + (Elections.inSession() ? "Идёт голосование по законопроекту. Депутаты: "
+							+ "/parlament za | protiv | vozd." : "Следующее заседание скоро. Парламент всегда поддерживает короля.")
+							+ " Состав: " + pst.seats[0] + " из " + Castle.PARLIAMENT_SEATS + " мест у «Единой Короны».»", Formatting.GOLD));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.PARTY_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					for (int i = 0; i < Elections.PARTIES.size(); i++) {
+						if (tags.contains("pizdec_party_" + i)) {
+							Elections.Party pt = Elections.PARTIES.get(i);
+							U.msg(p, U.t(pt.leader() + ": «" + pt.slogan() + " Голосуйте за «" + pt.name() + "» в ЦИК!»", pt.color()));
+						}
+					}
+				}
+				return ActionResult.SUCCESS;
+			}
 			for (int k = 0; k < Mfc.TAGS.length; k++) {
 				if (tags.contains(Mfc.TAGS[k])) {
 					if (hand == Hand.MAIN_HAND) Mfc.clerk(p, k);
@@ -620,6 +650,11 @@ public class PizdecMod implements ModInitializer {
 		lawTimer = Laws.PERIOD;
 	}
 
+	/** Указ введён вне очереди (например, парламентом) — следующий через полный период. */
+	public static void resetLawTimer() {
+		lawTimer = 0;
+	}
+
 	/** Магазин/казино/апгрейдер по команде: рядом с лавкой бесплатно, издалека — 5 бабла «за доставку». */
 	private static int remote(ServerPlayerEntity p, String what) {
 		PizdecState st = PizdecState.get(p.getServer());
@@ -723,6 +758,38 @@ public class PizdecMod implements ModInitializer {
 		}));
 
 		Docs.commands(d);
+		d.register(CommandManager.literal("vybory").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			U.msg(p, U.t("🗳 Выборы №" + (st.electionNo + 1) + " через " + Elections.minutesLeft(p.getServer()) + " мин. Голосовать — "
+					+ "ЦИК в здании парламента (к югу от тронного зала), нужен паспорт. "
+					+ (st.votes.containsKey(p.getUuid()) ? "Вы уже проголосовали." : "Вы ещё не голосовали.")
+					+ (st.lastResult.isEmpty() ? "" : " Прошлые итоги: " + st.lastResult), Formatting.GOLD));
+			return 1;
+		}));
+		d.register(CommandManager.literal("parlament")
+				.then(CommandManager.literal("za").executes(c -> {
+					Elections.voteBill(c.getSource().getPlayerOrThrow(), 0);
+					return 1;
+				}))
+				.then(CommandManager.literal("protiv").executes(c -> {
+					Elections.voteBill(c.getSource().getPlayerOrThrow(), 1);
+					return 1;
+				}))
+				.then(CommandManager.literal("vozd").executes(c -> {
+					Elections.voteBill(c.getSource().getPlayerOrThrow(), 2);
+					return 1;
+				})));
+		d.register(CommandManager.literal("gazeta").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			if (!Castle.inside(st, p.getBlockPos())) {
+				U.msg(p, U.t("📰 Газеты продаются в замке (киоск в лобби отеля) и приходят постояльцам каждые 2 минуты.", Formatting.GRAY));
+				return 0;
+			}
+			if (Money.pay(p, 2, "газету")) p.getInventory().offerOrDrop(News.newspaper(p.getServer()));
+			return 1;
+		}));
 		d.register(CommandManager.literal("fpv").executes(c -> {
 			Fpv.call(c.getSource().getPlayerOrThrow());
 			return 1;

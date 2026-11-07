@@ -108,6 +108,10 @@ public final class Jail {
 	/** Нарушение действующего указа. Первые 5 секунд указа — время на ознакомление. */
 	public static void violation(ServerPlayerEntity p, String what) {
 		if (busy(p) || p.isCreative() || p.isSpectator()) return;
+		if (Elections.deputyImmune(p)) {
+			U.bar(p, U.t("🏛 Депутатская неприкосновенность (в зале парламента)", Formatting.GOLD));
+			return;
+		}
 		if (Hotel.diplomat(p)) {
 			U.bar(p, U.t("🏨 Дипломатическая неприкосновенность (королевский люкс)", Formatting.AQUA));
 			return;

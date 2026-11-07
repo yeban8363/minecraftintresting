@@ -85,6 +85,9 @@ public final class Jobs {
 		job("assistant", "Помощник короля", Items.GOLDEN_HELMET,
 				"простоять в тронном зале секунд; раз в смену /ukaz — новый указ", 60, 250, 5,
 				p -> Money.get(p) >= 3000 && !Jail.busy(p), "3000+ бабла и чистая репутация");
+		job("deputy", "Депутат парламента", Items.WRITABLE_BOOK,
+				"заседать в зале парламента секунд (+20 за голос по законопроекту)", 60, 150, 3,
+				p -> Money.get(p) >= 500, "500+ бабла (избирательный залог)");
 	}
 
 	private Jobs() {}
@@ -145,6 +148,10 @@ public final class Jobs {
 		if (helpers.isEmpty() || amount <= 0) return;
 		int each = Math.max(1, amount / 10 / helpers.size());
 		for (ServerPlayerEntity h : helpers) taxShare.merge(h.getUuid(), each, Integer::sum);
+	}
+
+	public static void onDeputyVote(ServerPlayerEntity p) {
+		if (is(p, "deputy")) taxShare.merge(p.getUuid(), 20, Integer::sum);
 	}
 
 	public static void onPlace(ServerPlayerEntity p) {
@@ -234,6 +241,7 @@ public final class Jobs {
 					if (j.id.equals("treasurer") && Castle.inTreasury(st, pos)) add(p, 1);
 					if (j.id.equals("assistant") && Castle.inThroneHall(st, pos)) add(p, 1);
 					if (j.id.equals("warden") && Prison.inside(st, pos)) add(p, 1);
+					if (j.id.equals("deputy") && Castle.inParliament(st, pos)) add(p, 1);
 				}
 				if (j.id.equals("courier")) {
 					Vec3d now = p.getPos();
@@ -352,7 +360,7 @@ public final class Jobs {
 	// ------------------------------------------------------------------ биржа труда
 
 	public static final class JobsGui extends Gui {
-		private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
+		private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37};
 
 		private JobsGui(int syncId, PlayerInventory pinv, SimpleInventory inv, ServerPlayerEntity p) {
 			super(syncId, pinv, inv, p);

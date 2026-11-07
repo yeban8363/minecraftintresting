@@ -1419,6 +1419,38 @@ public final class Laws {
 					if (PizdecState.get(p.getServer()).properties.containsKey(p.getUuid())) Money.fine(p, 20, "перепись недвижимости");
 					else Money.fine(p, 10, "бездомность");
 				});
+		// --- версия 1.6: выборы, парламент, СМИ
+		law("free_elections", "Свободные выборы", "ближайшие выборы пройдут максимально честно. Слово короля");
+		law("agitation", "Агитация", "каждые 15 секунд гражданам напоминают, за кого голосовать")
+				.tick((p, t) -> {
+					if (t % 300 == 0) U.msg(p, U.t("📣 Голосуй за «" + Elections.PARTIES.get(0).name() + "»! " + News.headline(p.getServer()),
+							Formatting.GOLD));
+				});
+		law("silence_day", "День тишины", "слово «выборы» в чате запрещено. Агитация — тюрьма");
+		law("mandatory_vote", "Обязательное голосование", "кто не проголосовал на текущих выборах к концу указа — штраф 20")
+				.end(s -> {
+					PizdecState st = PizdecState.get(s);
+					for (ServerPlayerEntity p : U.free(s)) if (!st.votes.containsKey(p.getUuid())) Money.fine(p, 20, "неявка на выборы");
+				});
+		law("free_press", "Свобода прессы", "каждому гражданину — свежая «Королевская правда» бесплатно")
+				.each(p -> give(p, News.newspaper(p.getServer())));
+		law("early_elections", "Досрочные выборы", "выборы — прямо сейчас! Неожиданно, правда?")
+				.start(s -> {
+					PizdecState.get(s).electionTicks = 0;
+					Elections.hold(s);
+				});
+		law("dissolve_parliament", "Роспуск парламента", "все места отданы самой надёжной партии до следующих выборов")
+				.start(s -> {
+					PizdecState st = PizdecState.get(s);
+					st.seats = new int[] {Castle.PARLIAMENT_SEATS, 0, 0, 0, 0, 0, 0};
+					st.markDirty();
+					Castle.paintSeats(s);
+				});
+		law("tv_mandatory", "Обязательный просмотр новостей", "всем показывают «Первый Королевский» прямо в голову")
+				.tick((p, t) -> {
+					if (t % 200 == 0) U.title(p, U.t("📺 ПЕРВЫЙ КОРОЛЕВСКИЙ", Formatting.AQUA, Formatting.BOLD),
+							U.t(News.headline(p.getServer()), Formatting.WHITE));
+				});
 		law("weather_chaos", "Погодный хаос", "погода меняется каждые 10 секунд")
 				.world((s, t) -> { if (t % 200 == 1) { int r = U.R.nextInt(3); s.getOverworld().setWeather(r == 0 ? 600 : 0, r == 0 ? 0 : 600, r != 0, r == 2); } });
 	}
@@ -1516,6 +1548,7 @@ public final class Laws {
 		else if (is("say_please") && !text.toLowerCase().contains("пожалуйста")) crime = "не сказал «пожалуйста»";
 		else if (is("no_king_word") && text.toLowerCase().contains("корол")) crime = "упоминал короля всуе";
 		else if (is("only_questions") && !text.trim().endsWith("?")) crime = "сказал что-то утвердительно";
+		else if (is("silence_day") && text.toLowerCase().contains("выбор")) crime = "агитация в день тишины";
 		if (crime == null && is("tip_king")) Money.fine(p, 2, "чаевые королю");
 
 		if (crime != null) {
@@ -1530,6 +1563,15 @@ public final class Laws {
 	// ------------------------------------------------------------------ движок
 
 	public static void next(MinecraftServer s) {
+		Law l;
+		do {
+			l = U.pick(ALL);
+		} while (l == current && ALL.size() > 1);
+		enact(s, l, null);
+	}
+
+	/** Ввести конкретный закон (например, принятый парламентом). */
+	public static void enact(MinecraftServer s, Law l, String how) {
 		if (current != null) {
 			current.end.accept(s);
 			clearAttrs(s);
@@ -1537,18 +1579,16 @@ public final class Laws {
 		counters.clear();
 		lastSneak.clear();
 		lastJump.clear();
-		Law l;
-		do {
-			l = U.pick(ALL);
-		} while (l == current && ALL.size() > 1);
 		current = l;
+		PizdecMod.resetLawTimer();
 		lawTicks = 0;
 
 		PizdecState st = PizdecState.get(s);
 		st.decrees++;
 		st.markDirty();
 
-		U.say(s, U.t("📜 Указ №" + st.decrees + " Его Величества " + Castle.KING_NAME + ":", Formatting.GOLD));
+		U.say(s, U.t("📜 Указ №" + st.decrees + " Его Величества " + Castle.KING_NAME + (how == null ? "" : " (" + how + ")") + ":",
+				Formatting.GOLD));
 		U.say(s, U.t("   «" + l.title + "» — " + l.detail, Formatting.YELLOW));
 		U.titleAll(s, U.t("📜 " + l.title, Formatting.GOLD, Formatting.BOLD), U.t(l.detail, Formatting.YELLOW));
 		U.soundAll(s, SoundEvents.BLOCK_BELL_USE, 1.5f, 1.2f);

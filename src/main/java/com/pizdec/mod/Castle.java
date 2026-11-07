@@ -30,7 +30,8 @@ import static com.pizdec.mod.B.*;
  */
 public final class Castle {
 	public static final int SX = 57, SZ = 45;
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
+	public static final int PARLIAMENT_SEATS = 210;
 
 	public static final String VERSION_TAG = "pizdec_v2";
 	public static final String KING_TAG = "pizdec_king";
@@ -45,6 +46,9 @@ public final class Castle {
 	public static final String TREASURER_TAG = "pizdec_treasurer";
 	public static final String SECRETARY_TAG = "pizdec_secretary";
 	public static final String GATE_GUARD_TAG = "pizdec_gateguard";
+	public static final String SPEAKER_TAG = "pizdec_speaker";
+	public static final String CEC_TAG = "pizdec_cec";
+	public static final String PARTY_TAG = "pizdec_party";
 	/** Все «наши» постоянные жители — у старых версий нет VERSION_TAG, их убираем. */
 	public static final String[] NPC_TAGS = {KING_TAG, INSPECTOR_TAG, JESTER_TAG, SHOP_TAG, CASINO_TAG, UPGRADER_TAG, HR_TAG,
 			RECEPTION_TAG, CAPTAIN_TAG, TREASURER_TAG, SECRETARY_TAG, GATE_GUARD_TAG, "pizdec_guard", "pizdec_judge",
@@ -57,7 +61,7 @@ public final class Castle {
 
 	public static boolean inside(PizdecState st, BlockPos p) {
 		return st.castleBuilt && p.getX() >= st.cx - 5 && p.getX() <= st.cx + SX + 4 && p.getZ() >= st.cz - 5
-				&& p.getZ() <= st.cz + SZ + 4 && p.getY() >= st.cy - 8 && p.getY() <= st.cy + 24;
+				&& p.getZ() <= st.cz + SZ + 44 && p.getY() >= st.cy - 8 && p.getY() <= st.cy + 24;
 	}
 
 	public static BlockPos thronePos(PizdecState st) {
@@ -94,6 +98,45 @@ public final class Castle {
 		return in(st, p, 3, 7, 13, 13, 0, 4);
 	}
 
+	public static boolean inParliament(PizdecState st, Vec3d p) {
+		return st.castleBuilt && in(st, p, 11, 58, 45, 79, -1, 11);
+	}
+
+	/** Сундук в номере отеля (куда кладут газету) или null. */
+	public static BlockPos roomChest(PizdecState st, int room) {
+		int[] r;
+		if (room >= 6 && room <= 9) r = new int[] {13, 0, 15 + 6 * (room - 6) + 4};
+		else if (room == 10) r = new int[] {5, 6, 24};
+		else if (room == 11) r = new int[] {11, 6, 24};
+		else if (room == 12) r = new int[] {13, 6, 34};
+		else return null;
+		return new BlockPos(st.cx + r[0], st.cy + r[1], st.cz + r[2]);
+	}
+
+	public static BlockPos lobbyNewsstand(PizdecState st) {
+		return new BlockPos(st.cx + 4, st.cy, st.cz + 7);
+	}
+
+	/** Экраны телевизоров: {x, dy, z} относительно замка. */
+	public static List<int[][]> tvScreens() {
+		List<int[][]> l = new java.util.ArrayList<>();
+		for (int i = 0; i < 6; i++) l.add(new int[][] {{2, 2, 15 + 4 * i}, {2, 2, 16 + 4 * i}});
+		for (int i = 0; i < 4; i++) l.add(new int[][] {{14, 2, 16 + 6 * i}, {14, 2, 17 + 6 * i}});
+		l.add(new int[][] {{2, 8, 19}, {2, 8, 20}});
+		l.add(new int[][] {{14, 8, 19}, {14, 8, 20}});
+		l.add(new int[][] {{7, 8, 42}, {8, 8, 42}, {9, 8, 42}, {7, 9, 42}, {8, 9, 42}, {9, 9, 42}});
+		l.add(new int[][] {{5, 2, 6}, {6, 2, 6}, {7, 2, 6}, {5, 3, 6}, {6, 3, 6}, {7, 3, 6}});
+		int[][] foyer = new int[15][];
+		int k = 0;
+		for (int x = 36; x <= 40; x++) for (int y = 2; y <= 4; y++) foyer[k++] = new int[] {x, y, 50};
+		l.add(foyer);
+		int[][] hall = new int[36][];
+		k = 0;
+		for (int x = 24; x <= 32; x++) for (int y = 5; y <= 8; y++) hall[k++] = new int[] {x, y, 57};
+		l.add(hall);
+		return l;
+	}
+
 	public static boolean inBarracks(PizdecState st, Vec3d p) {
 		return in(st, p, 43, 19, 53, 29, 0, 5);
 	}
@@ -108,16 +151,27 @@ public final class Castle {
 			BlockPos spawn = world.getSpawnPos();
 			st.cx = spawn.getX() + 40;
 			st.cz = spawn.getZ() - 16;
-			loadChunks(st.cx - 8, st.cz - 8, st.cx + SX + 8, st.cz + SZ + 8);
+			loadChunks(st.cx - 8, st.cz - 8, st.cx + SX + 8, st.cz + SZ + 46);
 			st.cy = ground(st.cx + SX / 2, st.cz + SZ / 2);
 			build(st);
 			st.castleBuilt = true;
 			st.version = VERSION;
 			st.markDirty();
 			spawnNpcs(world, st);
+			initSeats(s);
 			PizdecMod.LOG.info("Замок короля v2 построен на {} {} {}", st.cx, st.cy, st.cz);
-		} else if (st.version < VERSION) {
+		} else if (st.version < 2) {
 			migrate(s, st);
+		} else if (st.version < VERSION) {
+			// версия 3: парламентский квартал, телевизоры, газетный киоск
+			loadChunks(st.cx - 8, st.cz + 40, st.cx + SX + 8, st.cz + SZ + 46);
+			parliamentQuarter(st.cx, st.cy, st.cz);
+			tvsAndNewsstand(st.cx, st.cy, st.cz);
+			spawnParliamentNpcs(world, st);
+			st.version = VERSION;
+			st.markDirty();
+			initSeats(s);
+			U.say(s, U.t("🏛 К замку пристроен парламентский квартал. Выборы — раз в 30 минут!", Formatting.GOLD));
 		}
 	}
 
@@ -141,10 +195,12 @@ public final class Castle {
 			st.courtBuilt = false;
 		}
 		loadChunks(st.cx - 8, st.cz - 8, st.cx + SX + 8, st.cz + SZ + 8);
+		loadChunks(st.cx - 8, st.cz + 40, st.cx + SX + 8, st.cz + SZ + 46);
 		build(st);
 		st.version = VERSION;
 		st.markDirty();
 		spawnNpcs(world, st);
+		initSeats(s);
 		U.say(s, U.t("🏗 Король перестроил замок, тюрьму и суд. Смотрите /pizdec castle — новые адреса.", Formatting.GOLD));
 	}
 
@@ -221,6 +277,166 @@ public final class Castle {
 		hotel(ox, oy, oz);
 		eastWing(ox, oy, oz);
 		keep(ox, oy, oz);
+		parliamentQuarter(ox, oy, oz);
+		tvsAndNewsstand(ox, oy, oz);
+	}
+
+	// ------------------------------------------------------------------ ТВ и газеты
+
+	private static void tvsAndNewsstand(int ox, int oy, int oz) {
+		for (int[][] tv : tvScreens()) for (int[] b : tv) set(ox + b[0], oy + b[1], oz + b[2], Blocks.BLACK_CONCRETE);
+		set(ox + 4, oy, oz + 7, Blocks.BARREL);
+	}
+
+	// ------------------------------------------------------------------ парламентский квартал
+
+	private static void parliamentQuarter(int ox, int oy, int oz) {
+		int zq0 = SZ, zq1 = SZ + 39; // 45..84
+		site(ox - 5, oz + zq0, ox + SX + 4, oz + zq1 + 4, oy, 30, Blocks.GRASS_BLOCK, Blocks.STONE_BRICKS);
+		// южные башни замка частично попали под расчистку — отстраиваем заново
+		tower(ox, oy, oz + SZ - 1, 1, -1);
+		tower(ox + SX - 1, oy, oz + SZ - 1, -1, -1);
+		// стены квартала
+		for (int x = 0; x < SX; x++) {
+			for (int z = zq0; z <= zq1; z++) {
+				boolean edge = x == 0 || x == SX - 1 || z == zq1;
+				boolean ring = !edge && (x == 1 || x == SX - 2 || z == zq1 - 1);
+				if (edge) {
+					for (int y = oy; y <= oy + 9; y++) set(ox + x, y, oz + z, wallBlock());
+					if ((x + z) % 2 == 0) set(ox + x, oy + 10, oz + z, wallBlock());
+				} else if (ring) {
+					set(ox + x, oy + 8, oz + z, Blocks.DARK_OAK_PLANKS);
+				}
+			}
+		}
+		tower(ox, oy, oz + zq1, 1, -1);
+		tower(ox + SX - 1, oy, oz + zq1, -1, -1);
+		// проходы из замка
+		fill(ox + 15, oy, oz + SZ - 1, ox + 17, oy + 4, oz + SZ - 1, Blocks.AIR);
+		fill(ox + 39, oy, oz + SZ - 1, ox + 41, oy + 4, oz + SZ - 1, Blocks.AIR);
+		fill(ox + 15, oy - 1, oz + 43, ox + 17, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
+		fill(ox + 39, oy - 1, oz + 43, ox + 41, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
+		fill(ox + 15, oy - 1, oz + 46, ox + 41, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
+		for (int z : new int[] {60, 70, 80}) {
+			lampPost(ox + 6, oy, oz + z);
+			lampPost(ox + 50, oy, oz + z);
+		}
+
+		// --- здание парламента x 10..46, z 50..80
+		int x0 = ox + 10, x1 = ox + 46, z0 = oz + 50, z1 = oz + 80, h = 11;
+		fill(x0, oy - 1, z0, x1, oy - 1, oz + 56, Blocks.POLISHED_ANDESITE);
+		fill(x0, oy - 1, oz + 57, x1, oy - 1, z1, Blocks.DARK_OAK_PLANKS);
+		walls(x0, oy, z0, x1, oy + h, z1, Blocks.QUARTZ_BRICKS);
+		for (int[] c : new int[][] {{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) fill(c[0], oy, c[1], c[0], oy + h, c[1], Blocks.QUARTZ_PILLAR);
+		for (int x = x0; x <= x1; x++) {
+			for (int z = z0; z <= z1; z++) {
+				boolean glass = x >= ox + 22 && x <= ox + 34 && z >= oz + 64 && z <= oz + 76;
+				boolean lamp = !glass && (x - x0) % 4 == 2 && (z - z0) % 4 == 2;
+				set(x, oy + h + 1, z, glass ? Blocks.GLASS.getDefaultState()
+						: lamp ? Blocks.GLOWSTONE.getDefaultState() : Blocks.SMOOTH_QUARTZ.getDefaultState());
+			}
+		}
+		// фасад: вход, портик, герб
+		fill(ox + 26, oy, z0, ox + 30, oy + 4, z0, Blocks.AIR);
+		for (int x : new int[] {22, 25, 31, 34}) fill(ox + x, oy, oz + 47, ox + x, oy + 7, oz + 47, Blocks.QUARTZ_PILLAR);
+		fill(ox + 21, oy + 8, oz + 47, ox + 35, oy + 8, oz + 49, Blocks.QUARTZ_SLAB);
+		fill(ox + 26, oy + 6, z0, ox + 30, oy + 8, z0, Blocks.RED_WOOL);
+		set(ox + 28, oy + 7, z0, Blocks.GOLD_BLOCK);
+		for (int x = 2; x <= 34; x += 4) set(x0 + x, oy + 6, z0, Blocks.GLASS);
+
+		// --- фойе (z 51..56): ЦИК, кабинки, урна, ТВ, лидеры партий
+		fill(ox + 11, oy, oz + 57, ox + 45, oy + h, oz + 57, Blocks.QUARTZ_BRICKS);
+		fill(ox + 13, oy, oz + 57, ox + 15, oy + 3, oz + 57, Blocks.AIR);
+		fill(ox + 41, oy, oz + 57, ox + 43, oy + 3, oz + 57, Blocks.AIR);
+		fill(ox + 12, oy, oz + 53, ox + 20, oy, oz + 53, Blocks.SPRUCE_PLANKS); // стол ЦИК
+		set(ox + 19, oy, oz + 55, Blocks.BARREL); // урна
+		set(ox + 19, oy + 1, oz + 55, Blocks.WHITE_CARPET);
+		for (int bx : new int[] {22, 24}) {
+			set(ox + bx - 1, oy, oz + 55, Blocks.WHITE_WOOL);
+			set(ox + bx - 1, oy + 1, oz + 55, Blocks.WHITE_WOOL);
+			set(ox + bx, oy, oz + 54, Blocks.WHITE_WOOL);
+			set(ox + bx, oy + 1, oz + 54, Blocks.WHITE_WOOL);
+			set(ox + bx, oy + 2, oz + 55, Blocks.RED_WOOL);
+		}
+		for (int x = 35; x <= 41; x++) set(ox + x, oy, oz + 55, B.stairs(Blocks.SPRUCE_STAIRS, Direction.SOUTH));
+		B.chandelier(ox + 18, oy + h + 1, oz + 54, 2);
+		B.chandelier(ox + 38, oy + h + 1, oz + 54, 2);
+
+		// --- зал заседаний (z 58..79)
+		fill(ox + 24, oy, oz + 58, ox + 32, oy, oz + 60, Blocks.QUARTZ_BLOCK); // трибуна спикера
+		fill(ox + 27, oy + 1, oz + 60, ox + 29, oy + 1, oz + 60, Blocks.DARK_OAK_PLANKS);
+		set(ox + 28, oy, oz + 62, Blocks.LECTERN);
+		// королевская ложа
+		fill(ox + 34, oy, oz + 58, ox + 38, oy + 1, oz + 60, Blocks.QUARTZ_BLOCK);
+		fill(ox + 34, oy + 2, oz + 58, ox + 38, oy + 2, oz + 60, Blocks.GOLD_BLOCK);
+		set(ox + 36, oy + 3, oz + 58, B.stairs(Blocks.QUARTZ_STAIRS, Direction.NORTH));
+		set(ox + 34, oy + 3, oz + 60, Blocks.LANTERN);
+		set(ox + 38, oy + 3, oz + 60, Blocks.LANTERN);
+		// амфитеатр: 7 рядов по 30 мест, поднимается к югу
+		for (int r = 0; r < 7; r++) {
+			int z = oz + 64 + 2 * r, hh = r;
+			if (hh > 0) fill(ox + 11, oy, z, ox + 45, oy + hh - 1, z + 1, Blocks.DARK_OAK_PLANKS);
+			for (int x = 12; x <= 44; x++) {
+				if (x == 20 || x == 28 || x == 36) continue;
+				set(ox + x, oy + hh, z, B.stairs(Blocks.DARK_OAK_STAIRS, Direction.SOUTH));
+				set(ox + x, oy + hh, z + 1, Blocks.YELLOW_WOOL);
+			}
+		}
+		fill(ox + 11, oy, oz + 78, ox + 45, oy + 6, oz + 79, Blocks.DARK_OAK_PLANKS);
+		// окна и флаги партий
+		for (int z : new int[] {60, 66, 72, 78}) {
+			fill(x0, oy + 7, oz + z, x0, oy + 9, oz + z, Blocks.GLASS);
+			fill(x1, oy + 7, oz + z, x1, oy + 9, oz + z, Blocks.GLASS);
+		}
+		for (int i = 0; i < Elections.PARTIES.size(); i++) {
+			Block wool = Elections.PARTIES.get(i).wool();
+			fill(x0, oy + 3, oz + 61 + 2 * i, x0, oy + 6, oz + 61 + 2 * i, wool);
+			fill(x1, oy + 3, oz + 61 + 2 * i, x1, oy + 6, oz + 61 + 2 * i, wool);
+		}
+		for (int[] c : new int[][] {{20, 68}, {28, 70}, {36, 68}, {28, 64}}) B.chandelier(ox + c[0], oy + h + 1, oz + c[1], 2);
+	}
+
+	/** Состав парламента до первых выборов. */
+	private static void initSeats(MinecraftServer s) {
+		PizdecState st = PizdecState.get(s);
+		int sum = 0;
+		for (int v : st.seats) sum += v;
+		if (sum == 0) st.seats = new int[] {152, 13, 11, 10, 9, 8, 7};
+		st.markDirty();
+		paintSeats(s);
+	}
+
+	/** Перекрашивает спинки кресел по итогам выборов: сектора партий слева направо. */
+	public static void paintSeats(MinecraftServer s) {
+		PizdecState st = PizdecState.get(s);
+		if (!st.castleBuilt) return;
+		w = s.getOverworld();
+		List<BlockPos> seats = new java.util.ArrayList<>();
+		for (int x = 12; x <= 44; x++) {
+			if (x == 20 || x == 28 || x == 36) continue;
+			for (int r = 0; r < 7; r++) seats.add(new BlockPos(st.cx + x, st.cy + r, st.cz + 65 + 2 * r));
+		}
+		int idx = 0;
+		for (int party = 0; party < Elections.PARTIES.size(); party++) {
+			for (int k = 0; k < st.seats[party] && idx < seats.size(); k++, idx++) {
+				BlockPos b = seats.get(idx);
+				set(b.getX(), b.getY(), b.getZ(), Elections.PARTIES.get(party).wool());
+			}
+		}
+	}
+
+	private static void spawnParliamentNpcs(ServerWorld world, PizdecState st) {
+		int ox = st.cx, oy = st.cy, oz = st.cz;
+		npc(world, ox + 28.5, oy + 1, oz + 58.5, 0f, SPEAKER_TAG, U.t("🏛 Спикер парламента Аркадий Голосуев", Formatting.GOLD),
+				VillagerProfession.CLERIC);
+		npc(world, ox + 16.5, oy, oz + 51.5, 0f, CEC_TAG, U.t("🗳 Председатель ЦИК Нина Подсчётова", Formatting.WHITE),
+				VillagerProfession.LIBRARIAN);
+		for (int i = 0; i < Elections.PARTIES.size(); i++) {
+			Elections.Party pt = Elections.PARTIES.get(i);
+			VillagerEntity v = npc(world, ox + 33.5 + 2 * i, oy, oz + 52.5, 0f, PARTY_TAG,
+					U.t(pt.leader() + " («" + pt.name() + "»)", pt.color()), VillagerProfession.NITWIT);
+			if (v != null) v.addCommandTag("pizdec_party_" + i);
+		}
 	}
 
 	private static void tower(int cx, int oy, int cz, int sx, int sz) {
@@ -559,6 +775,7 @@ public final class Castle {
 				VillagerProfession.ARMORER);
 		npc(world, ox + 48.5, oy, oz + 37.5, 180f, TREASURER_TAG, U.t("💰 Казначей Аркадий", Formatting.GOLD),
 				VillagerProfession.CARTOGRAPHER);
+		spawnParliamentNpcs(world, st);
 		for (double gx : new double[] {25.5, 31.5}) {
 			IronGolemEntity g = EntityType.IRON_GOLEM.create(world);
 			if (g == null) continue;

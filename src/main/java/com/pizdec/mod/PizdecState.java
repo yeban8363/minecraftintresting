@@ -24,6 +24,14 @@ public class PizdecState extends PersistentState {
 	public boolean mfcBuilt;
 	public int mx, my, mz;
 	public int passportSeq;
+	public int newsIssue;
+	public int electionNo;
+	public int electionTicks;
+	public int billNo;
+	public int[] seats = new int[7];
+	public String lastResult = "";
+	/** Голоса на текущих выборах: UUID → индекс партии. */
+	public final Map<UUID, Integer> votes = new HashMap<>();
 	public int cadastralSeq;
 	public int decrees;
 	public int taxRaids;
@@ -155,6 +163,14 @@ public class PizdecState extends PersistentState {
 		st.my = nbt.getInt("my");
 		st.mz = nbt.getInt("mz");
 		st.passportSeq = nbt.getInt("passportSeq");
+		st.newsIssue = nbt.getInt("newsIssue");
+		st.electionNo = nbt.getInt("electionNo");
+		st.electionTicks = nbt.getInt("electionTicks");
+		st.billNo = nbt.getInt("billNo");
+		int[] seats = nbt.getIntArray("seats");
+		if (seats.length == 7) st.seats = seats;
+		st.lastResult = nbt.getString("lastResult");
+		readMap(nbt, "votes", (id, c) -> st.votes.put(id, c.getInt("p")));
 		st.cadastralSeq = nbt.getInt("cadastralSeq");
 		st.decrees = nbt.getInt("decrees");
 		st.taxRaids = nbt.getInt("taxRaids");
@@ -292,6 +308,19 @@ public class PizdecState extends PersistentState {
 		nbt.putInt("my", my);
 		nbt.putInt("mz", mz);
 		nbt.putInt("passportSeq", passportSeq);
+		nbt.putInt("newsIssue", newsIssue);
+		nbt.putInt("electionNo", electionNo);
+		nbt.putInt("electionTicks", electionTicks);
+		nbt.putInt("billNo", billNo);
+		nbt.putIntArray("seats", seats);
+		nbt.putString("lastResult", lastResult);
+		NbtCompound vt = new NbtCompound();
+		votes.forEach((id, v) -> {
+			NbtCompound c = new NbtCompound();
+			c.putInt("p", v);
+			vt.put(id.toString(), c);
+		});
+		nbt.put("votes", vt);
 		nbt.putInt("cadastralSeq", cadastralSeq);
 		nbt.putInt("decrees", decrees);
 		nbt.putInt("taxRaids", taxRaids);
