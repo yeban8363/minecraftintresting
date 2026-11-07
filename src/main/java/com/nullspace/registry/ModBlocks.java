@@ -1,7 +1,12 @@
 package com.nullspace.registry;
 
 import com.nullspace.NullspaceMod;
+import com.nullspace.block.AnomalyDoorBlock;
+import com.nullspace.block.ChalkMarkBlock;
 import com.nullspace.block.DampCarpetBlock;
+import com.nullspace.block.GeneratorBlock;
+import com.nullspace.block.PaperPileBlock;
+import com.nullspace.block.SupplyCrateBlock;
 import com.nullspace.block.ExitDoorBlock;
 import com.nullspace.block.FlickeringLightBlock;
 import com.nullspace.block.GlowBlock;
@@ -57,6 +62,42 @@ public final class ModBlocks {
 			new ExitDoorBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
 	public static final Block EXIT_SIGN = register("exit_sign",
 			new Block(unbreakable(MapColor.EMERALD_GREEN, BlockSoundGroup.GLASS).luminance(state -> 10)));
+
+	public static final Block GENERATOR = register("generator",
+			new GeneratorBlock(AbstractBlock.Settings.create()
+					.mapColor(MapColor.IRON_GRAY)
+					.strength(3.5f, 6.0f)
+					.requiresTool()
+					.sounds(BlockSoundGroup.METAL)
+					.luminance(state -> state.get(GeneratorBlock.LIT) ? 15 : 0)));
+	public static final Block SUPPLY_CRATE = register("supply_crate",
+			new SupplyCrateBlock(AbstractBlock.Settings.create()
+					.mapColor(MapColor.OAK_TAN)
+					.strength(2.0f)
+					.sounds(BlockSoundGroup.WOOD)));
+	public static final Block PAPER_PILE = register("paper_pile",
+			new PaperPileBlock(AbstractBlock.Settings.create()
+					.mapColor(MapColor.WHITE)
+					.strength(0.0f)
+					.noCollision()
+					.nonOpaque()
+					.dropsNothing()
+					.sounds(BlockSoundGroup.WOOL)
+					.pistonBehavior(PistonBehavior.DESTROY)));
+	public static final Block ANOMALY_DOOR = register("anomaly_door",
+			new AnomalyDoorBlock(unbreakable(MapColor.OAK_TAN, BlockSoundGroup.WOOD)));
+
+	/** Метка мелом. Без предмета: ставится мелом. */
+	public static final Block CHALK_MARK = registerNoItem("chalk_mark",
+			new ChalkMarkBlock(AbstractBlock.Settings.create()
+					.mapColor(MapColor.WHITE)
+					.strength(0.0f)
+					.noCollision()
+					.nonOpaque()
+					.replaceable()
+					.dropsNothing()
+					.sounds(BlockSoundGroup.SAND)
+					.pistonBehavior(PistonBehavior.DESTROY)));
 
 	/** Невидимый источник света от фонарика. Без предмета. */
 	public static final Block GLOW = registerNoItem("glow",

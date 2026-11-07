@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,stranger=false": {
+      "model": "nullspace:block/chalk_mark"
+    },
+    "facing=north,stranger=true": {
+      "model": "nullspace:block/chalk_mark_stranger"
+    },
+    "facing=east,stranger=false": {
+      "model": "nullspace:block/chalk_mark",
+      "y": 90
+    },
+    "facing=east,stranger=true": {
+      "model": "nullspace:block/chalk_mark_stranger",
+      "y": 90
+    },
+    "facing=south,stranger=false": {
+      "model": "nullspace:block/chalk_mark",
+      "y": 180
+    },
+    "facing=south,stranger=true": {
+      "model": "nullspace:block/chalk_mark_stranger",
+      "y": 180
+    },
+    "facing=west,stranger=false": {
+      "model": "nullspace:block/chalk_mark",
+      "y": 270
+    },
+    "facing=west,stranger=true": {
+      "model": "nullspace:block/chalk_mark_stranger",
+      "y": 270
+    }
+  }
+}

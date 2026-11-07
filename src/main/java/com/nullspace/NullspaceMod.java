@@ -4,6 +4,9 @@ import com.nullspace.command.NullspaceCommand;
 import com.nullspace.mechanic.AtmosphereDirector;
 import com.nullspace.mechanic.FlashlightLightManager;
 import com.nullspace.mechanic.NoclipManager;
+import com.nullspace.mechanic.StabilityManager;
+import com.nullspace.network.StabilityPayload;
+import com.nullspace.registry.ModBlockEntities;
 import com.nullspace.network.SilencePayload;
 import com.nullspace.registry.ModAttachments;
 import com.nullspace.registry.ModBlocks;
@@ -36,10 +39,12 @@ public class NullspaceMod implements ModInitializer {
 		ModComponents.register();
 		ModBlocks.register();
 		ModItems.register();
+		ModBlockEntities.register();
 		ModAttachments.register();
 		NullspaceDimensions.register();
 
 		PayloadTypeRegistry.playS2C().register(SilencePayload.ID, SilencePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(StabilityPayload.ID, StabilityPayload.CODEC);
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
 				NullspaceCommand.register(dispatcher));
@@ -48,7 +53,10 @@ public class NullspaceMod implements ModInitializer {
 			NoclipManager.tick(server);
 			FlashlightLightManager.tick(server);
 			AtmosphereDirector.tick(server);
+			StabilityManager.tick(server);
 		});
+
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> StabilityManager.sync(handler.player));
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			FlashlightLightManager.clear(handler.player);

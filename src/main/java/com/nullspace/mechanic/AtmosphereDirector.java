@@ -71,6 +71,11 @@ public final class AtmosphereDirector {
 		STATES.remove(player.getUuid());
 	}
 
+	public static boolean isSilent(ServerPlayerEntity player) {
+		State s = STATES.get(player.getUuid());
+		return s != null && player.getServerWorld().getTime() < s.silenceUntil;
+	}
+
 	/** Принудительно включить тишину (для команды). */
 	public static void forceSilence(ServerPlayerEntity player, int ticks) {
 		State s = STATES.computeIfAbsent(player.getUuid(), id -> new State());
@@ -111,7 +116,14 @@ public final class AtmosphereDirector {
 
 		// --- выбор следующего события ---
 		if (now >= s.nextEvent) {
-			s.nextEvent = now + 20L * (20 + random.nextInt(40));
+			// Чем ниже Стабильность, тем чаще что-то происходит.
+			float stability = StabilityManager.get(player);
+			double pace = 0.35 + 0.65 * (stability / StabilityManager.MAX);
+			s.nextEvent = now + (long) (20L * (20 + random.nextInt(40)) * pace);
+
+			if (stability < 60 && random.nextInt(100) < 25 && ChalkEvents.tryHaunt(player, random)) {
+				return;
+			}
 			int roll = random.nextInt(100);
 			if (roll < 35) {
 				s.stepsUntil = now + 20L * (6 + random.nextInt(10));

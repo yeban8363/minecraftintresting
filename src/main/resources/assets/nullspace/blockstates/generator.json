@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "nullspace:block/generator"
+    },
+    "lit=true": {
+      "model": "nullspace:block/generator_on"
+    }
+  }
+}

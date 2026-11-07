@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "open=false": {
+      "model": "nullspace:block/supply_crate"
+    },
+    "open=true": {
+      "model": "nullspace:block/supply_crate_open"
+    }
+  }
+}

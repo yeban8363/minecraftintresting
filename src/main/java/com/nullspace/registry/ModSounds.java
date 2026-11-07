@@ -16,6 +16,13 @@ public final class ModSounds {
 	public static final SoundEvent BREATH = register("ambient.breath");
 	public static final SoundEvent NOCLIP_FALL = register("event.noclip_fall");
 	public static final SoundEvent FLASHLIGHT_CLICK = register("item.flashlight_click");
+	public static final SoundEvent GENERATOR_HUM = register("block.generator_hum");
+	public static final SoundEvent GENERATOR_START = register("block.generator_start");
+	public static final SoundEvent GENERATOR_STOP = register("block.generator_stop");
+	public static final SoundEvent HEARTBEAT = register("ambient.heartbeat");
+	public static final SoundEvent WHISPER = register("ambient.whisper");
+	public static final SoundEvent CHALK = register("item.chalk");
+	public static final SoundEvent STADIUM_ENTER = register("event.stadium_enter");
 	/** «Музыка» биома — тишина. Нужна, чтобы в NULLSPACE не играла обычная музыка. */
 	public static final SoundEvent MUSIC_SILENCE = register("music.silence");
 

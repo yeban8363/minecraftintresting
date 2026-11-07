@@ -54,5 +54,46 @@
     "sounds": [
       "nullspace:silence"
     ]
+  },
+  "block.generator_hum": {
+    "sounds": [
+      "nullspace:generator_hum"
+    ]
+  },
+  "block.generator_start": {
+    "sounds": [
+      "nullspace:generator_start"
+    ],
+    "subtitle": "subtitles.nullspace.generator_start"
+  },
+  "block.generator_stop": {
+    "sounds": [
+      "nullspace:generator_stop"
+    ],
+    "subtitle": "subtitles.nullspace.generator_stop"
+  },
+  "ambient.heartbeat": {
+    "sounds": [
+      "nullspace:heartbeat"
+    ],
+    "subtitle": "subtitles.nullspace.heartbeat"
+  },
+  "ambient.whisper": {
+    "sounds": [
+      "nullspace:whisper"
+    ],
+    "subtitle": "subtitles.nullspace.whisper"
+  },
+  "item.chalk": {
+    "sounds": [
+      "nullspace:chalk1",
+      "nullspace:chalk2"
+    ],
+    "subtitle": "subtitles.nullspace.chalk"
+  },
+  "event.stadium_enter": {
+    "sounds": [
+      "nullspace:stadium_enter"
+    ]
   }
 }

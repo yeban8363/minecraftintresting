@@ -14,6 +14,12 @@ public final class ModComponents {
 			NullspaceMod.id("flashlight_on"),
 			ComponentType.<Boolean>builder().codec(Codec.BOOL).packetCodec(PacketCodecs.BOOL).build());
 
+	/** Номер записки исследователя. */
+	public static final ComponentType<Integer> NOTE_ID = Registry.register(
+			Registries.DATA_COMPONENT_TYPE,
+			NullspaceMod.id("note_id"),
+			ComponentType.<Integer>builder().codec(Codec.INT).packetCodec(PacketCodecs.VAR_INT).build());
+
 	public static void register() {
 	}
 

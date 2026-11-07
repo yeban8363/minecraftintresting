@@ -1,0 +1,6 @@
+{
+  "type": "nullspace:stadium",
+  "generator": {
+    "type": "nullspace:stadium"
+  }
+}

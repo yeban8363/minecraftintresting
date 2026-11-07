@@ -43,7 +43,7 @@ public final class OfficeLayout {
 		}
 	}
 
-	private enum Column { OPEN, WALL, EXIT }
+	private enum Column { OPEN, WALL, EXIT, DOOR }
 
 	private static final BlockState AIR = Blocks.AIR.getDefaultState();
 
@@ -108,6 +108,14 @@ public final class OfficeLayout {
 		return rand(cx, cz, 22) * NullspaceConfig.get().exitRarity < 1.0;
 	}
 
+	private boolean doorV(int cx, int cz) {
+		return rand(cx, cz, 23) * NullspaceConfig.get().anomalyDoorRarity < 1.0;
+	}
+
+	private boolean doorH(int cx, int cz) {
+		return rand(cx, cz, 24) * NullspaceConfig.get().anomalyDoorRarity < 1.0;
+	}
+
 	private Column columnAt(int x, int z) {
 		int cx = Math.floorDiv(x, CELL), lx = Math.floorMod(x, CELL);
 		int cz = Math.floorDiv(z, CELL), lz = Math.floorMod(z, CELL);
@@ -122,13 +130,15 @@ public final class OfficeLayout {
 			if (!wallV(cx, cz)) return Column.OPEN;
 			int g = gapV(cx, cz);
 			if (g >= 0) return (lz == g || lz == g + 1) ? Column.OPEN : Column.WALL;
-			return (lz == 2 && exitV(cx, cz)) ? Column.EXIT : Column.WALL;
+			if (lz == 2 && exitV(cx, cz)) return Column.EXIT;
+			return (lz == 3 && doorV(cx, cz)) ? Column.DOOR : Column.WALL;
 		}
 		if (lz == 0) {
 			if (!wallH(cx, cz)) return Column.OPEN;
 			int g = gapH(cx, cz);
 			if (g >= 0) return (lx == g || lx == g + 1) ? Column.OPEN : Column.WALL;
-			return (lx == 2 && exitH(cx, cz)) ? Column.EXIT : Column.WALL;
+			if (lx == 2 && exitH(cx, cz)) return Column.EXIT;
+			return (lx == 3 && doorH(cx, cz)) ? Column.DOOR : Column.WALL;
 		}
 		return Column.OPEN;
 	}
@@ -151,6 +161,28 @@ public final class OfficeLayout {
 		return ModBlocks.OFFICE_CARPET.getDefaultState();
 	}
 
+	/**
+	 * Находки внутри клеток: ящики с припасами, пачки записок и редкие
+	 * «посты» — генератор, ящик и записки вместе. Центр клетки (2,2) всегда пуст:
+	 * туда приземляются провалившиеся.
+	 */
+	private BlockState objectAt(int x, int z) {
+		int lx = Math.floorMod(x, CELL), lz = Math.floorMod(z, CELL);
+		if (lx == 0 || lz == 0) return null;
+		int cx = Math.floorDiv(x, CELL), cz = Math.floorDiv(z, CELL);
+		double r = rand(cx, cz, 30);
+
+		if (r < 0.004) { // пост исследователя
+			if (lx == 3 && lz == 1) return ModBlocks.GENERATOR.getDefaultState();
+			if (lx == 1 && lz == 1) return ModBlocks.SUPPLY_CRATE.getDefaultState();
+			if (lx == 3 && lz == 3) return ModBlocks.PAPER_PILE.getDefaultState();
+			return null;
+		}
+		if (r < 0.018) return (lx == 1 && lz == 1) ? ModBlocks.SUPPLY_CRATE.getDefaultState() : null;
+		if (r < 0.045) return (lx == 3 && lz == 3) ? ModBlocks.PAPER_PILE.getDefaultState() : null;
+		return null;
+	}
+
 	/** Полный столбец блоков от y = 0 до TOP_Y включительно. */
 	public BlockState[] column(int x, int z) {
 		BlockState[] states = new BlockState[HEIGHT];
@@ -161,6 +193,8 @@ public final class OfficeLayout {
 		switch (columnAt(x, z)) {
 			case OPEN -> {
 				for (int y = FLOOR_Y + 1; y < CEILING_Y; y++) states[y] = AIR;
+				BlockState object = objectAt(x, z);
+				if (object != null) states[FLOOR_Y + 1] = object;
 			}
 			case WALL -> {
 				states[FLOOR_Y + 1] = ModBlocks.OFFICE_WALLPAPER_BASE.getDefaultState();
@@ -170,6 +204,11 @@ public final class OfficeLayout {
 				states[FLOOR_Y + 1] = ModBlocks.EXIT_DOOR.getDefaultState();
 				states[FLOOR_Y + 2] = ModBlocks.EXIT_DOOR.getDefaultState();
 				states[FLOOR_Y + 3] = ModBlocks.EXIT_SIGN.getDefaultState();
+			}
+			case DOOR -> {
+				states[FLOOR_Y + 1] = ModBlocks.ANOMALY_DOOR.getDefaultState();
+				states[FLOOR_Y + 2] = ModBlocks.ANOMALY_DOOR.getDefaultState();
+				states[FLOOR_Y + 3] = ModBlocks.OFFICE_WALLPAPER.getDefaultState();
 			}
 		}
 

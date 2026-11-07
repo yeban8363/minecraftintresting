@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "nullspace:supply_crate"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": "minecraft:block_state_property",
+          "block": "nullspace:supply_crate",
+          "properties": {
+            "open": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

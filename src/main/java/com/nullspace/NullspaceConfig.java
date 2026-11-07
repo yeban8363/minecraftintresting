@@ -35,6 +35,8 @@ public class NullspaceConfig {
 	public double deadBatteryChance = 0.15;
 	/** Шанс появления двери EXIT на отрезке стены (1 / exitRarity). */
 	public int exitRarity = 2500;
+	/** Шанс аномальной двери (в стадион) на отрезке стены (1 / anomalyDoorRarity). */
+	public int anomalyDoorRarity = 450;
 	/** Включить ли события атмосферы (шаги, стук, тишина). */
 	public boolean atmosphere = true;
 

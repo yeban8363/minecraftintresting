@@ -7,6 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.nullspace.mechanic.AtmosphereDirector;
 import com.nullspace.mechanic.NoclipManager;
 import com.nullspace.mechanic.NullspaceTeleporter;
+import com.nullspace.mechanic.StabilityManager;
+import com.nullspace.mechanic.StadiumTeleporter;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -20,6 +22,8 @@ import static net.minecraft.server.command.CommandManager.literal;
  *  /nullspace enter [игрок]    — провалиться сразу
  *  /nullspace trigger [игрок]  — провал с предвестниками
  *  /nullspace exit [игрок]     — вернуться домой
+ *  /nullspace stability <0-100>
+ *  /nullspace stadium          — войти в стадион / выйти из него
  *  /nullspace silence <секунды>
  */
 public final class NullspaceCommand {
@@ -29,6 +33,17 @@ public final class NullspaceCommand {
 				.then(withTarget("enter", NullspaceTeleporter::sendToNullspace))
 				.then(withTarget("trigger", NoclipManager::begin))
 				.then(withTarget("exit", NullspaceTeleporter::returnHome))
+				.then(literal("stability")
+						.then(argument("value", IntegerArgumentType.integer(0, 100))
+								.executes(ctx -> {
+									ServerPlayerEntity player = ctx.getSource().getPlayerOrThrow();
+									StabilityManager.set(player, IntegerArgumentType.getInteger(ctx, "value"));
+									return 1;
+								})))
+				.then(literal("stadium").executes(ctx -> {
+					StadiumTeleporter.use(ctx.getSource().getPlayerOrThrow());
+					return 1;
+				}))
 				.then(literal("silence")
 						.then(argument("seconds", IntegerArgumentType.integer(1, 600))
 								.executes(ctx -> {
