@@ -1,6 +1,5 @@
 package com.nullspace.mechanic;
 
-import com.nullspace.entity.TenantEntity;
 import com.nullspace.item.FlashlightItem;
 import com.nullspace.registry.ModBlocks;
 import net.minecraft.block.Block;
@@ -36,9 +35,9 @@ public final class FlashlightLightManager {
 			Light current = LIGHTS.get(player.getUuid());
 			ServerWorld world = player.getServerWorld();
 			BlockPos target = activeFlashlight(player) ? findTarget(player) : null;
-			// Рядом Жилец — фонарик барахлит.
-			if (target != null && server.getTicks() % 3 == 0 && player.getRandom().nextFloat() < 0.6f
-					&& !world.getEntitiesByClass(TenantEntity.class, player.getBoundingBox().expand(20), e -> true).isEmpty()) {
+			// Когда реальность уходит, фонарик барахлит.
+			if (target != null && server.getTicks() % 3 == 0
+					&& StabilityManager.get(player) < 25f && player.getRandom().nextFloat() < 0.5f) {
 				target = null;
 			}
 

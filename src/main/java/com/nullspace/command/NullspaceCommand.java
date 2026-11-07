@@ -6,8 +6,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.nullspace.mechanic.AtmosphereDirector;
 import com.nullspace.mechanic.BlackoutManager;
-import com.nullspace.mechanic.Level1Manager;
-import com.nullspace.mechanic.TenantSpawner;
 import com.nullspace.mechanic.NoclipManager;
 import com.nullspace.mechanic.NullspaceTeleporter;
 import com.nullspace.mechanic.StabilityManager;
@@ -28,8 +26,6 @@ import static net.minecraft.server.command.CommandManager.literal;
  *  /nullspace level1 [игрок]   — провалиться на Уровень 1
  *  /nullspace blackout         — обесточивание
  *  /nullspace run              — бегущие шаги
- *  /nullspace tenant watch|hunt
- *  /nullspace swimmer
  *  /nullspace stability <0-100>
  *  /nullspace stadium          — войти в стадион / выйти из него
  *  /nullspace silence <секунды>
@@ -57,14 +53,6 @@ public final class NullspaceCommand {
 					AtmosphereDirector.forceRun(ctx.getSource().getPlayerOrThrow());
 					return 1;
 				}))
-				.then(literal("tenant")
-						.then(literal("watch").executes(ctx -> TenantSpawner.spawnWatcher(ctx.getSource().getPlayerOrThrow()) ? 1 : 0))
-						.then(literal("hunt").executes(ctx -> {
-							ServerPlayerEntity player = ctx.getSource().getPlayerOrThrow();
-							BlackoutManager.start(player, 20 * 20);
-							return TenantSpawner.spawnHunter(player) ? 1 : 0;
-						})))
-				.then(literal("swimmer").executes(ctx -> Level1Manager.spawnSwimmer(ctx.getSource().getPlayerOrThrow()) ? 1 : 0))
 				.then(literal("stadium").executes(ctx -> {
 					StadiumTeleporter.use(ctx.getSource().getPlayerOrThrow());
 					return 1;

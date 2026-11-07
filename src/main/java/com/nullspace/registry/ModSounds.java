@@ -27,10 +27,6 @@ public final class ModSounds {
 	public static final SoundEvent POOL_AMBIENCE = register("ambient.pool");
 	public static final SoundEvent WET_STEPS = register("ambient.wet_steps");
 	public static final SoundEvent WATER_DISTANT = register("ambient.water_distant");
-	public static final SoundEvent SWIMMER_NEAR = register("entity.swimmer.near");
-	public static final SoundEvent SWIMMER_GRAB = register("entity.swimmer.grab");
-	public static final SoundEvent TENANT_VANISH = register("entity.tenant.vanish");
-	public static final SoundEvent TENANT_SCREAM = register("entity.tenant.scream");
 	public static final SoundEvent BLACKOUT = register("event.blackout");
 	public static final SoundEvent POWER_ON = register("event.power_on");
 	public static final SoundEvent DRAIN_ENGINE = register("block.drain_engine");

@@ -6,13 +6,11 @@ import com.nullspace.item.NoteItem;
 import com.nullspace.network.SilencePayload;
 import com.nullspace.network.StabilityPayload;
 import com.nullspace.registry.ModBlocks;
-import com.nullspace.registry.ModEntities;
 import com.nullspace.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
 import net.minecraft.client.render.RenderLayer;
@@ -40,12 +38,5 @@ public class NullspaceClient implements ClientModInitializer {
 		});
 
 		HudRenderCallback.EVENT.register(ClientStability::renderHud);
-
-		EntityRendererRegistry.register(ModEntities.TENANT, ctx -> new ShadowRenderer<>(ctx,
-				NullspaceMod.id("textures/entity/tenant.png"), NullspaceMod.id("textures/entity/tenant_eyes.png"),
-				0.92f, 1.28f, false));
-		EntityRendererRegistry.register(ModEntities.SWIMMER, ctx -> new ShadowRenderer<>(ctx,
-				NullspaceMod.id("textures/entity/swimmer.png"), NullspaceMod.id("textures/entity/swimmer_eyes.png"),
-				1.0f, 1.0f, true));
 	}
 }

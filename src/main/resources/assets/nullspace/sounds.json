@@ -117,30 +117,6 @@
     ],
     "subtitle": "subtitles.nullspace.water_distant"
   },
-  "entity.swimmer.near": {
-    "sounds": [
-      "nullspace:swimmer_near"
-    ],
-    "subtitle": "subtitles.nullspace.swimmer_near"
-  },
-  "entity.swimmer.grab": {
-    "sounds": [
-      "nullspace:swimmer_grab"
-    ],
-    "subtitle": "subtitles.nullspace.swimmer_grab"
-  },
-  "entity.tenant.vanish": {
-    "sounds": [
-      "nullspace:tenant_vanish"
-    ],
-    "subtitle": "subtitles.nullspace.tenant_vanish"
-  },
-  "entity.tenant.scream": {
-    "sounds": [
-      "nullspace:tenant_scream"
-    ],
-    "subtitle": "subtitles.nullspace.tenant_scream"
-  },
   "event.blackout": {
     "sounds": [
       "nullspace:blackout"

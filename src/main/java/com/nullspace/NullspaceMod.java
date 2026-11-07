@@ -6,7 +6,6 @@ import com.nullspace.mechanic.FlashlightLightManager;
 import com.nullspace.mechanic.BlackoutManager;
 import com.nullspace.mechanic.Level1Manager;
 import com.nullspace.mechanic.NoclipManager;
-import com.nullspace.registry.ModEntities;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import com.nullspace.mechanic.StabilityManager;
 import com.nullspace.network.StabilityPayload;
@@ -44,7 +43,6 @@ public class NullspaceMod implements ModInitializer {
 		ModBlocks.register();
 		ModItems.register();
 		ModBlockEntities.register();
-		ModEntities.register();
 		ModAttachments.register();
 		NullspaceDimensions.register();
 
@@ -71,7 +69,6 @@ public class NullspaceMod implements ModInitializer {
 			FlashlightLightManager.clear(handler.player);
 			NoclipManager.forget(handler.player);
 			AtmosphereDirector.forget(handler.player);
-			Level1Manager.forget(handler.player);
 		});
 
 		LOGGER.info("Reality is stable. For now.");

@@ -34,11 +34,11 @@ import java.util.UUID;
  * Всегда:      шаги за стеной, отдалённые звуки, дыхание за спиной, тишина,
  *              стук, если долго стоять у стены.
  * Стаб. < 70:  обесточивание — лампы гаснут волной.
- * Стаб. < 65:  Жилец в конце коридора.
  * Стаб. < 60:  меловые метки меняются.
  * Стаб. < 50:  кто-то бежит к тебе со спины — и шаги обрываются вплотную.
  * Стаб. < 35:  шёпот твоего ника в чате; «<ты> присоединился к игре».
- * Стаб. < 30:  во время обесточивания Жилец охотится.
+ *
+ * Здесь никого нет. Всё это — ты и пространство.
  */
 public final class AtmosphereDirector {
 	private static final int ECHO_DELAY = 10;
@@ -153,11 +153,7 @@ public final class AtmosphereDirector {
 
 		if (stability < 70 && roll < 9 && !BlackoutManager.isActive(player)) {
 			BlackoutManager.start(player, 20 * (12 + random.nextInt(10)));
-			if (stability < 30 && random.nextFloat() < 0.6f) TenantSpawner.spawnHunter(player);
 			return;
-		}
-		if (stability < 65 && roll >= 9 && roll < 17) {
-			if (TenantSpawner.spawnWatcher(player)) return;
 		}
 		if (stability < 60 && roll >= 17 && roll < 25) {
 			if (ChalkEvents.tryHaunt(player, random)) return;
