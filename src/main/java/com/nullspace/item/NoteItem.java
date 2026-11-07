@@ -17,12 +17,13 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 /**
- * Записка исследователя. Текст лежит в файлах локализации:
+ * Записка. Почерк — твой. Ты этого не писал. Или ещё не написал.
+ * Текст лежит в файлах локализации:
  * note.nullspace.<номер>.p<страница>. %1$s — ник читающего, %2$s — дата из будущего.
  */
 public class NoteItem extends Item {
 	/** Сколько страниц в каждой записке. Номер записки = индекс. */
-	public static final int[] PAGES = {2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1};
+	public static final int[] PAGES = {2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1};
 
 	/** Открывает экран чтения. Подставляется клиентом; на сервере ничего не делает. */
 	public static BiConsumer<ItemStack, PlayerEntity> opener = (stack, player) -> {

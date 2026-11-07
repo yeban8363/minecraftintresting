@@ -22,7 +22,8 @@ import java.util.UUID;
  * Правила Уровня 1:
  *  - вода непрозрачная: с головой под водой почти ничего не видно;
  *  - считаем, сколько игрок пробыл в воде (Пловец терпелив, но не бесконечно);
- *  - рядом с игроком иногда появляется Пловец.
+ *  - когда Стабильность пошатнулась (< 85), под водой появляется Пловец —
+ *    то, что тебе мерещится.
  */
 public final class Level1Manager {
 	private static final Map<UUID, Integer> WATER_TICKS = new HashMap<>();
@@ -58,7 +59,7 @@ public final class Level1Manager {
 		ServerWorld world = player.getServerWorld();
 		boolean exists = !world.getEntitiesByClass(SwimmerEntity.class,
 				player.getBoundingBox().expand(64), e -> true).isEmpty();
-		if (exists || player.getRandom().nextFloat() > 0.35f) return;
+		if (exists || StabilityManager.get(player) >= 85f || player.getRandom().nextFloat() > 0.35f) return;
 		spawnSwimmer(player);
 	}
 

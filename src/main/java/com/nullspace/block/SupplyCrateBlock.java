@@ -17,7 +17,7 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-/** Ящик с припасами, оставленный кем-то до тебя. Открывается один раз. */
+/** Ящик с припасами. Кто его здесь оставил — непонятно. Возможно, ты. Открывается один раз. */
 public class SupplyCrateBlock extends Block {
 	public static final BooleanProperty OPEN = Properties.OPEN;
 

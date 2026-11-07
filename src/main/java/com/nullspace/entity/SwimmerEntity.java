@@ -6,6 +6,7 @@ import com.nullspace.registry.ModSounds;
 import com.nullspace.world.AquaticLayout;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
@@ -23,6 +24,10 @@ import net.minecraft.world.World;
 /**
  * Пловец. Тёмный силуэт под мутной водой Уровня 1.
  *
+ * Канон: в NULLSPACE никого нет. Пловец — галлюцинация, он появляется,
+ * только когда Стабильность уже пошатнулась. Ранить не может, но тянет вниз
+ * и отнимает реальность.
+ *
  * Пока ты на суше — плывёт рядом, параллельно тебе, под самой поверхностью.
  * Посмотришь прямо — уходит на глубину и пропадает.
  * Пробудешь в воде дольше пяти секунд — плывёт к тебе и тянет на дно.
@@ -37,6 +42,7 @@ public class SwimmerEntity extends WaterCreatureEntity {
 
 	public SwimmerEntity(EntityType<? extends WaterCreatureEntity> type, World world) {
 		super(type, world);
+		setInvulnerable(true);
 	}
 
 	public static DefaultAttributeContainer.Builder createAttributes() {
@@ -141,11 +147,19 @@ public class SwimmerEntity extends WaterCreatureEntity {
 
 	private void grab(ServerWorld world, PlayerEntity target) {
 		attackCooldown = 30;
-		tryAttack(target);
 		target.setVelocity(target.getVelocity().add(0, -0.6, 0));
 		target.velocityModified = true;
 		world.playSound(null, target.getBlockPos(), ModSounds.SWIMMER_GRAB, SoundCategory.HOSTILE, 1.0f, 1.0f);
-		if (target instanceof ServerPlayerEntity sp) StabilityManager.add(sp, -6f);
+		if (target instanceof ServerPlayerEntity sp) StabilityManager.add(sp, -8f);
+	}
+
+	/** Ударить галлюцинацию нельзя — она уходит на глубину. */
+	@Override
+	public boolean damage(DamageSource source, float amount) {
+		if (!getWorld().isClient() && source.getAttacker() instanceof PlayerEntity && diving < 0) {
+			diving = 0;
+		}
+		return false;
 	}
 
 	private static boolean isWater(ServerWorld world, Vec3d p) {

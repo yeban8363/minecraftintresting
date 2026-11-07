@@ -4,6 +4,9 @@ import com.nullspace.mechanic.BlackoutManager;
 import com.nullspace.mechanic.StabilityManager;
 import com.nullspace.registry.ModSounds;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
@@ -20,6 +23,10 @@ import java.util.UUID;
 
 /**
  * Жилец. Высокая тёмная фигура без лица.
+ *
+ * Канон: в NULLSPACE никого нет. Жилец — не существо, а то, что пространство
+ * показывает тебе, когда связь с реальностью слабеет. Он не может ранить —
+ * только отнять у тебя реальность. Ударить его нельзя: рука проходит сквозь.
  *
  * WATCH — стоит в конце коридора и смотрит. Подойдёшь или будешь долго
  *         смотреть в ответ — исчезнет.
@@ -101,11 +108,21 @@ public class TenantEntity extends PathAwareEntity {
 			getNavigation().startMovingTo(target, 1.7);
 		}
 		if (dist < 1.8) {
-			target.damage(getDamageSources().mobAttack(this), 6.0f);
-			StabilityManager.add(sp, -15f);
+			StabilityManager.add(sp, -20f);
+			sp.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, 80, 0, false, false));
+			sp.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 100, 0, false, false));
 			sp.playSoundToPlayer(ModSounds.TENANT_SCREAM, SoundCategory.HOSTILE, 1.0f, 1.0f);
 			vanish(world);
 		}
+	}
+
+	/** Ударить галлюцинацию нельзя — она просто рассеивается. */
+	@Override
+	public boolean damage(DamageSource source, float amount) {
+		if (!getWorld().isClient() && source.getAttacker() instanceof PlayerEntity) {
+			vanish((ServerWorld) getWorld());
+		}
+		return false;
 	}
 
 	/** Смотрит ли игрок в нашу сторону и видит ли нас. */
