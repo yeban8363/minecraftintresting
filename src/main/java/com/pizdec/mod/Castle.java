@@ -25,6 +25,9 @@ public final class Castle {
 	public static final String KING_TAG = "pizdec_king";
 	public static final String INSPECTOR_TAG = "pizdec_inspector";
 	public static final String JESTER_TAG = "pizdec_jester";
+	public static final String SHOP_TAG = "pizdec_shop";
+	public static final String CASINO_TAG = "pizdec_casino";
+	public static final String UPGRADER_TAG = "pizdec_upgrader";
 	public static final String KING_NAME = "Король Пиздец III";
 
 	private static ServerWorld w;
@@ -251,6 +254,44 @@ public final class Castle {
 			set(cx + i * sx, oy + h + 4, cz, Blocks.RED_WOOL);
 			set(cx + i * sx, oy + h + 3, cz, i == 2 ? Blocks.YELLOW_WOOL : Blocks.RED_WOOL);
 		}
+	}
+
+	// ------------------------------------------------------------------ лавки во дворе
+
+	/** Магазин, казино и апгрейдер — три лавки вдоль западной стены двора. */
+	public static void ensureStalls(MinecraftServer s) {
+		PizdecState st = PizdecState.get(s);
+		if (!st.castleBuilt || st.stallsBuilt) return;
+		ServerWorld world = s.getOverworld();
+		w = world;
+		stall(st, 4, 11, Blocks.LIME_WOOL, SHOP_TAG, U.t("🛒 Торговец Жорик", Formatting.GREEN),
+				VillagerProfession.FARMER);
+		stall(st, 4, 18, Blocks.RED_WOOL, CASINO_TAG, U.t("🎰 Крупье Анжела", Formatting.RED),
+				VillagerProfession.CARTOGRAPHER);
+		stall(st, 4, 25, Blocks.PURPLE_WOOL, UPGRADER_TAG, U.t("⬆ Апгрейдер Дима", Formatting.LIGHT_PURPLE),
+				VillagerProfession.TOOLSMITH);
+		st.stallsBuilt = true;
+		st.markDirty();
+	}
+
+	private static void stall(PizdecState st, int sx, int sz, Block roof, String tag, net.minecraft.text.Text name,
+			VillagerProfession prof) {
+		int x = st.cx + sx, y = st.cy, z = st.cz + sz;
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int dy = 0; dy <= 4; dy++) set(x + dx, y + dy, z + dz, Blocks.AIR);
+				set(x + dx, y - 1, z + dz, Blocks.SMOOTH_STONE);
+				set(x + dx, y + 4, z + dz, roof);
+			}
+		}
+		for (int[] c : new int[][] {{-2, -2}, {2, -2}, {-2, 2}, {2, 2}}) {
+			for (int dy = 0; dy <= 3; dy++) set(x + c[0], y + dy, z + c[1], Blocks.SPRUCE_FENCE);
+		}
+		// прилавок перед продавцом
+		set(x + 2, y, z - 1, Blocks.SPRUCE_PLANKS);
+		set(x + 2, y, z + 1, Blocks.SPRUCE_PLANKS);
+		set(x - 1, y, z - 1, Blocks.LANTERN);
+		npc(w, x + 0.5, y, z + 0.5, 270f, tag, name, prof);
 	}
 
 	// ------------------------------------------------------------------ жители замка

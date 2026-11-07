@@ -68,6 +68,7 @@ public class PizdecMod implements ModInitializer {
 			Money.obj(s);
 			Castle.ensureBuilt(s);
 			Prison.ensureBuilt(s);
+			Castle.ensureStalls(s);
 			Jail.onServerStart(s);
 			taxTimer = 0;
 			lawTimer = Laws.PERIOD - 20 * 15; // первый закон через 15 секунд
@@ -111,6 +112,7 @@ public class PizdecMod implements ModInitializer {
 		}
 		Laws.tick(s);
 		Jail.tick(s);
+		Gui.tickAll(s);
 
 		if (chaosTimer >= nextChaos) {
 			chaosTimer = 0;
@@ -141,7 +143,8 @@ public class PizdecMod implements ModInitializer {
 		PizdecState st = PizdecState.get(p.getServer());
 		if (st.castleBuilt) {
 			U.msg(p, U.t("🏰 Замок короля: " + U.coords(st.cx + 16, st.cy, st.cz) + " (ворота). Налоговая — каждые 5 минут, "
-					+ "новый закон — каждые 40 секунд, за нарушения — тюрьма. /bank, /zakon, /tyurma.", Formatting.YELLOW));
+					+ "новый закон — каждые 40 секунд, за нарушения — тюрьма. Во дворе замка — магазин, казино и апгрейдер. "
+					+ "/bank, /zakon, /tyurma, /magazin, /kazino, /upgrade.", Formatting.YELLOW));
 		}
 		if (Jail.jailed(p)) {
 			Jail.suppressEscape(p);
@@ -184,6 +187,7 @@ public class PizdecMod implements ModInitializer {
 			BlockState b = world.getBlockState(hit.getBlockPos());
 			if (!p.isCreative() && !Laws.allowUse(p, b, p.getStackInHand(hand))) return ActionResult.FAIL;
 			if (hand != Hand.MAIN_HAND) return ActionResult.PASS;
+			if (Laws.is("pay_click") && !p.isCreative()) Money.fine(p, 1, "платный ПКМ");
 			if (p.isSneaking() && !p.getMainHandStack().isEmpty()) return ActionResult.PASS;
 
 			int cost = 0;
@@ -254,6 +258,10 @@ public class PizdecMod implements ModInitializer {
 			}
 			if (tags.contains(Castle.JESTER_TAG)) {
 				Jail.arrest(p, "обидел шута", 30);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Castle.SHOP_TAG) || tags.contains(Castle.CASINO_TAG) || tags.contains(Castle.UPGRADER_TAG)) {
+				Jail.arrest(p, "нападение на королевский бизнес", 60);
 				return ActionResult.FAIL;
 			}
 			if (tags.contains(Prison.GUARD_TAG)) {
@@ -334,6 +342,18 @@ public class PizdecMod implements ModInitializer {
 			if (tags.contains(Jail.CARRIAGE_TAG)) return ActionResult.FAIL;
 			if (tags.contains(Castle.KING_TAG)) {
 				if (hand == Hand.MAIN_HAND) audience(p, entity.getBlockPos());
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.SHOP_TAG)) {
+				if (hand == Hand.MAIN_HAND) Shop.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.CASINO_TAG)) {
+				if (hand == Hand.MAIN_HAND) Casino.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.UPGRADER_TAG)) {
+				if (hand == Hand.MAIN_HAND) Upgrader.open(p);
 				return ActionResult.SUCCESS;
 			}
 			if (tags.contains(Castle.INSPECTOR_TAG)) {
@@ -426,6 +446,20 @@ public class PizdecMod implements ModInitializer {
 
 	// ------------------------------------------------------------------ команды
 
+	/** Магазин/казино/апгрейдер по команде: рядом с лавкой бесплатно, издалека — 5 бабла «за доставку». */
+	private static int remote(ServerPlayerEntity p, String what) {
+		PizdecState st = PizdecState.get(p.getServer());
+		boolean near = st.castleBuilt && p.getServerWorld() == p.getServer().getOverworld()
+				&& p.squaredDistanceTo(st.cx + 4, st.cy, st.cz + 18) < 20 * 20;
+		if (!near && !Jail.jailed(p) && !Money.pay(p, 5, "дистанционное обслуживание")) return 0;
+		switch (what) {
+			case "shop" -> Shop.open(p);
+			case "casino" -> Casino.open(p);
+			default -> Upgrader.open(p);
+		}
+		return 1;
+	}
+
 	private static void commands(CommandDispatcher<ServerCommandSource> d) {
 		d.register(CommandManager.literal("bank")
 				.executes(c -> {
@@ -454,6 +488,11 @@ public class PizdecMod implements ModInitializer {
 						.executes(c -> {
 							ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
 							ItemStack st = p.getMainHandStack();
+							if (Gui.isSpecial(st, "fake_diamond")) {
+								st.setCount(0);
+								Jail.arrest(p, "сбыт фальшивых алмазов", 60);
+								return 0;
+							}
 							int each = 0;
 							if (st.isOf(Items.EMERALD)) each = 15;
 							else if (st.isOf(Items.DIAMOND)) each = 30;
@@ -476,6 +515,10 @@ public class PizdecMod implements ModInitializer {
 			c.getSource().sendFeedback(() -> U.t("📜 Сейчас действует: " + Laws.currentText(), Formatting.GOLD), false);
 			return 1;
 		}));
+
+		d.register(CommandManager.literal("magazin").executes(c -> remote(c.getSource().getPlayerOrThrow(), "shop")));
+		d.register(CommandManager.literal("kazino").executes(c -> remote(c.getSource().getPlayerOrThrow(), "casino")));
+		d.register(CommandManager.literal("upgrade").executes(c -> remote(c.getSource().getPlayerOrThrow(), "upgrade")));
 
 		d.register(CommandManager.literal("zalog").executes(c -> {
 			Jail.bail(c.getSource().getPlayerOrThrow());

@@ -138,6 +138,41 @@ public final class Chaos {
 		ev("%s перепутали с опасным преступником", p -> Jail.arrest(p, "похож на фоторобот", 25));
 
 		ev("за %s приехала карета, но перепутала адрес. Штраф за ложный вызов −10", p -> Money.fine(p, 10, "ложный вызов кареты"));
+
+		ev("%s сбила королевская карета на полном ходу", p -> {
+			p.damage(p.getDamageSources().generic(), 3f);
+			p.addVelocity(U.R.nextDouble() * 2 - 1, 0.9, U.R.nextDouble() * 2 - 1);
+			p.velocityModified = true;
+			U.sound(p, net.minecraft.sound.SoundEvents.ENTITY_HORSE_ANGRY, 1.5f, 1f);
+		});
+
+		ev("%s нашёл на дороге алмаз. Подозрительно блестит", p -> p.getInventory().offerOrDrop(Gui.fakeDiamond()));
+
+		ev("налоговая перепутала %s с миллионером: −50… и тут же извинилась: +50", p -> {
+			Money.fine(p, 50, "ошибка налоговой");
+			Money.give(p, 50, "извинения налоговой");
+		});
+
+		ev("у %s украли штаны", p -> {
+			ItemStack legs = p.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS);
+			if (legs.isEmpty()) {
+				U.msg(p, U.t("…но штанов не было. Вор ушёл в слезах.", Formatting.GRAY));
+				return;
+			}
+			p.dropItem(legs.copy(), true, false);
+			p.equipStack(net.minecraft.entity.EquipmentSlot.LEGS, ItemStack.EMPTY);
+		});
+
+		ev("%s получил от короля справку об освобождении. Видимо, по ошибке", p -> p.getInventory().offerOrDrop(Gui.freeCard()));
+
+		ev("%s выиграл бесплатный спин в апгрейдере (он уже прокрутился)", Upgrader::autoUpgrade);
+
+		ev("на %s нагадил королевский голубь", p -> {
+			p.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40, 0));
+			p.getServerWorld().spawnParticles(net.minecraft.particle.ParticleTypes.ITEM_SNOWBALL, p.getX(), p.getY() + 2,
+					p.getZ(), 20, 0.3, 0.3, 0.3, 0.1);
+			Money.give(p, 5, "к деньгам");
+		});
 	}
 
 	public static void random(MinecraftServer s) {

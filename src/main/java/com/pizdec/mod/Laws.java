@@ -111,6 +111,9 @@ public final class Laws {
 	private static final Map<UUID, ItemStack> confiscated = new HashMap<>();
 	private static final Map<UUID, Boolean> wasSneaking = new HashMap<>();
 	private static final Map<UUID, Integer> lastSneak = new HashMap<>();
+	private static final Map<UUID, Integer> lastJump = new HashMap<>();
+	private static final Map<UUID, Float> lastYaw = new HashMap<>();
+	private static final Map<UUID, Float> yawDelta = new HashMap<>();
 	/** Счётчики для «планов»: прыжки, блоки, убийства, сообщения, поклоны. */
 	private static final Map<String, Map<UUID, Integer>> counters = new HashMap<>();
 
@@ -257,6 +260,43 @@ public final class Laws {
 
 	private static BlockState stateUnder(ServerPlayerEntity p) {
 		return p.getServerWorld().getBlockState(p.getBlockPos().down());
+	}
+
+	/** Есть ли рядом (в радиусе r) блок, подходящий под условие. */
+	private static boolean near(ServerPlayerEntity p, int r, java.util.function.Predicate<BlockState> ok) {
+		ServerWorld w = p.getServerWorld();
+		net.minecraft.util.math.BlockPos c = p.getBlockPos();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (ok.test(w.getBlockState(new net.minecraft.util.math.BlockPos(c.getX() + dx, c.getY() + dy, c.getZ() + dz)))) return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static boolean hasSpecial(ServerPlayerEntity p, String tag) {
+		PlayerInventory inv = p.getInventory();
+		for (int i = 0; i < inv.size(); i++) if (Gui.isSpecial(inv.getStack(i), tag)) return true;
+		return false;
+	}
+
+	private static boolean removeSpecial(ServerPlayerEntity p, String tag) {
+		PlayerInventory inv = p.getInventory();
+		boolean found = false;
+		for (int i = 0; i < inv.size(); i++) {
+			if (Gui.isSpecial(inv.getStack(i), tag)) {
+				inv.setStack(i, ItemStack.EMPTY);
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	/** Магазин сообщает о покупке (для указа «Шопинг обязателен»). */
+	public static void onBuy(ServerPlayerEntity p) {
+		inc("buys", p);
 	}
 
 	private static boolean hasArmor(ServerPlayerEntity p) {
@@ -856,12 +896,137 @@ public final class Laws {
 					if (!st.castleBuilt) return;
 					p.teleport(p.getServer().getOverworld(), st.cx + 16.5, st.cy, st.cz + 24.5, 0f, 0f);
 				});
+
+		// ===== версия 1.2: магазин, казино, апгрейдер и ещё больше абсурда =====
+
+		law("gambling_ban", "Азартные игры запрещены", "казино и апгрейдер — прямая дорога в тюрьму");
+
+		law("casino_x2", "Счастливый час в казино", "все выигрыши ×2. Король сегодня щедрый (нет)");
+
+		law("shop_sale", "Королевская распродажа", "в магазине всё за полцены");
+
+		law("shop_inflation", "Инфляция", "цены в магазине ×3. Король купил новую корону");
+
+		law("upgrader_luck", "Апгрейдер подкручен", "шанс апгрейда +20%. Только сегодня");
+
+		law("upgrade_everything", "Принудительный апгрейд", "всё, что в руке, — в апгрейдер. Без спроса")
+				.each(Upgrader::autoUpgrade);
+
+		law("casino_mandatory", "Обязательная ставка", "каждый ставит 20 бабла на монетку. Отказ не принимается")
+				.each(p -> {
+					if (!Money.pay(p, 20, "обязательную ставку")) {
+						Jail.arrest(p, "уклонение от обязательной ставки", 20);
+						return;
+					}
+					if (U.R.nextInt(100) < 48) Money.give(p, 40, "монетка выпала орлом");
+					else U.bar(p, U.t("🪙 Решка. Казино благодарит.", Formatting.RED));
+				});
+
+		law("jail_tour", "Экскурсия в тюрьму", "всех граждан бесплатно катают в тюрьму на 5 секунд")
+				.each(p -> Jail.arrest(p, "экскурсия (бесплатная)", 5));
+
+		law("no_left", "Налево поворачивать запрещено", "только направо. Налево — только в тюрьму")
+				.tick(rule(20, p -> yawDelta.getOrDefault(p.getUuid(), 0f) < -40f, "повернул налево"));
+
+		law("pet_rock", "Каждому — домашний камень", "камень Валера должен быть с тобой до конца указа")
+				.each(p -> give(p, Gui.petRock()))
+				.end(s -> {
+					for (ServerPlayerEntity p : U.free(s)) {
+						if (!hasSpecial(p, "pet_rock")) Jail.arrest(p, "потерял домашний камень Валеру", 40);
+						else Money.give(p, 10, "заботливый хозяин камня");
+					}
+				});
+
+		law("hot_potato", "Горячая картошка", "у кого картошка в конце указа — тот сядет")
+				.start(s -> {
+					List<ServerPlayerEntity> ps = U.free(s);
+					if (ps.isEmpty()) return;
+					ServerPlayerEntity p = U.pick(ps);
+					give(p, Gui.hotPotato());
+					U.say(s, U.t("🥔 Горячая картошка у " + p.getName().getString() + "!", Formatting.RED));
+				})
+				.end(s -> {
+					for (ServerPlayerEntity p : U.free(s)) {
+						if (removeSpecial(p, "hot_potato")) Jail.arrest(p, "горячая картошка", 40);
+					}
+				});
+
+		law("king_spies", "Король следит за вами", "к каждому приставлен шпион")
+				.each(p -> {
+					for (int i = 0; i < 3; i++) {
+						net.minecraft.entity.passive.BatEntity bat = U.spawn(EntityType.BAT, p.getServerWorld(), p.getX(),
+								p.getY() + 2, p.getZ());
+						if (bat != null) {
+							bat.setCustomName(U.t("Шпион короля", Formatting.DARK_GRAY));
+							bat.setCustomNameVisible(true);
+							bat.setGlowing(true);
+						}
+					}
+				});
+
+		law("happiness", "Обязательное счастье", "прыгай от радости хотя бы раз в 5 секунд")
+				.tick((p, t) -> {
+					if (t > GRACE && t % 20 == 0 && lawTicks - lastJump.getOrDefault(p.getUuid(), 0) > 100) {
+						v(p, "недостаточно счастлив");
+					}
+				});
+
+		law("beard_tax", "Налог на бороду", "у кого шлем — тот бородатый. 5 бабла каждые 10 секунд")
+				.tick((p, t) -> {
+					if (t % 200 == 0 && !p.getEquippedStack(EquipmentSlot.HEAD).isEmpty()) Money.fine(p, 5, "налог на бороду");
+				});
+
+		law("toilet", "Обязательный поход в туалет", "постой у котла хотя бы раз, или в тюрьму")
+				.tick((p, t) -> {
+					if (t % 20 == 0 && near(p, 2, b -> b.isOf(Blocks.CAULDRON) || b.isOf(Blocks.WATER_CAULDRON))) inc("toilet", p);
+				})
+				.end(quota("toilet", 1, "поход в туалет"));
+
+		law("touch_grass", "Потрогай траву", "постой на траве хотя бы раз за указ. Шахтёры — в тюрьму")
+				.tick((p, t) -> {
+					if (t % 20 == 0 && p.isOnGround() && stateUnder(p).isOf(Blocks.GRASS_BLOCK)) inc("grass", p);
+				})
+				.end(quota("grass", 1, "трогание травы"));
+
+		law("hug_tree", "Обними дерево", "постой вплотную к дереву, король любит экологию")
+				.tick((p, t) -> {
+					if (t % 20 == 0 && near(p, 1, b -> b.isIn(BlockTags.LOGS))) inc("tree", p);
+				})
+				.end(quota("tree", 1, "объятия с деревом"));
+
+		law("dinnerbone", "Мир вверх ногами", "все мобы вокруг переименованы в Dinnerbone")
+				.each(p -> {
+					for (net.minecraft.entity.mob.MobEntity m : p.getServerWorld().getEntitiesByClass(
+							net.minecraft.entity.mob.MobEntity.class, p.getBoundingBox().expand(32),
+							m -> !m.hasCustomName() && m.getCommandTags().isEmpty())) {
+						m.setCustomName(U.t("Dinnerbone"));
+					}
+				});
+
+		law("tax_return", "Возврат налогов", "всем +30 бабла. Налоговая плачет")
+				.each(p -> Money.give(p, 30, "возврат налогов"));
+
+		law("fake_diamonds", "Алмазный дождь", "с неба падают алмазы. Совершенно настоящие")
+				.each(p -> {
+					for (int i = 0; i < 5; i++) {
+						p.getServerWorld().spawnEntity(new net.minecraft.entity.ItemEntity(p.getServerWorld(),
+								p.getX() + U.between(-3, 3), p.getY() + 6, p.getZ() + U.between(-3, 3), Gui.fakeDiamond()));
+					}
+				});
+
+		law("pay_click", "Платный ПКМ", "каждое нажатие по блоку — 1 бабло");
+
+		law("royal_shopping", "Шопинг обязателен", "кто ничего не купит в магазине за 40 секунд — в тюрьму")
+				.end(quota("buys", 1, "покупки в магазине"));
+
+		law("vip_jail", "Платная тюрьма", "заключённые платят 2 бабла за каждую секунду отсидки");
 	}
 
 	// ------------------------------------------------------------------ события от главного класса
 
 	public static void onJump(ServerPlayerEntity p) {
 		inc("jumps", p);
+		lastJump.put(p.getUuid(), lawTicks);
 		if (is("no_jump")) v(p, "прыгнул без лицензии");
 	}
 
@@ -950,6 +1115,7 @@ public final class Laws {
 		}
 		counters.clear();
 		lastSneak.clear();
+		lastJump.clear();
 		Law l;
 		do {
 			l = U.pick(ALL);
@@ -983,6 +1149,10 @@ public final class Laws {
 				Vec3d now = p.getPos();
 				Vec3d was = lastPos.put(id, now);
 				lastDelta.put(id, was == null ? Vec3d.ZERO : now.subtract(was));
+				Float yWas = lastYaw.put(id, p.getYaw());
+				float dy = yWas == null ? 0f : p.getYaw() - yWas;
+				dy = ((dy % 360f) + 540f) % 360f - 180f;
+				yawDelta.put(id, dy);
 			}
 			boolean sn = p.isSneaking();
 			Boolean before = wasSneaking.put(id, sn);
@@ -1000,5 +1170,7 @@ public final class Laws {
 		lastPos.remove(id);
 		lastDelta.remove(id);
 		wasSneaking.remove(id);
+		lastYaw.remove(id);
+		yawDelta.remove(id);
 	}
 }

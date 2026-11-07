@@ -14,6 +14,7 @@ public class PizdecState extends PersistentState {
 	public boolean castleBuilt;
 	public int cx, cy, cz;
 	public boolean prisonBuilt;
+	public boolean stallsBuilt;
 	public int px, py, pz;
 	public int decrees;
 	public int taxRaids;
@@ -35,6 +36,7 @@ public class PizdecState extends PersistentState {
 		st.cy = nbt.getInt("cy");
 		st.cz = nbt.getInt("cz");
 		st.prisonBuilt = nbt.getBoolean("prisonBuilt");
+		st.stallsBuilt = nbt.getBoolean("stallsBuilt");
 		st.px = nbt.getInt("px");
 		st.py = nbt.getInt("py");
 		st.pz = nbt.getInt("pz");
@@ -60,6 +62,7 @@ public class PizdecState extends PersistentState {
 		nbt.putInt("cy", cy);
 		nbt.putInt("cz", cz);
 		nbt.putBoolean("prisonBuilt", prisonBuilt);
+		nbt.putBoolean("stallsBuilt", stallsBuilt);
 		nbt.putInt("px", px);
 		nbt.putInt("py", py);
 		nbt.putInt("pz", pz);
