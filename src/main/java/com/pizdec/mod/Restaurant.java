@@ -196,6 +196,17 @@ public final class Restaurant {
 		}
 	}
 
+	/** Стоячая табличка: rot 0..15 (0 — текст смотрит на юг, 8 — на север). */
+	static void standingSign(int x, int y, int z, int rot, String... lines) {
+		set(x, y, z, Blocks.BIRCH_SIGN.getDefaultState().with(net.minecraft.state.property.Properties.ROTATION, rot));
+		if (w.getBlockEntity(new net.minecraft.util.math.BlockPos(x, y, z)) instanceof net.minecraft.block.entity.SignBlockEntity sb) {
+			net.minecraft.block.entity.SignText t = sb.getText(true);
+			for (int i = 0; i < lines.length && i < 4; i++) t = t.withMessage(i, net.minecraft.text.Text.literal(lines[i]));
+			sb.setText(t, true);
+			sb.markDirty();
+		}
+	}
+
 	static void spawnNpcs(ServerWorld world, PizdecState st) {
 		Castle.npc(world, st.cx + 51.5, st.cy, st.cz + 64.5, 180f, CASHIER_TAG,
 				U.t("🍔 Кассир Ксюша (" + NAME + ")", Formatting.AQUA), VillagerProfession.BUTCHER);

@@ -71,6 +71,7 @@ public class PizdecMod implements ModInitializer {
 			Court.ensureBuilt(s);
 			Mfc.ensureBuilt(s);
 			Border.ensureBuilt(s);
+			Demokratovka.ensureBuilt(s);
 			Portraits.ensurePlaced(s);
 			Portraits.ensureV2(s);
 			Jail.onServerStart(s);
@@ -152,6 +153,7 @@ public class PizdecMod implements ModInitializer {
 		BlackMarket.tick(s);
 		Ceremonies.tick(s);
 		Archive.tick(s);
+		Demokratovka.tick(s);
 		Gui.tickAll(s);
 
 		if (chaosTimer >= nextChaos) {
@@ -312,6 +314,7 @@ public class PizdecMod implements ModInitializer {
 			if (!alive) {
 				jumps.remove(newP.getUuid());
 				if (War.onDeath(newP)) return;
+				if (Demokratovka.onRespawn(newP)) return;
 				if (Jail.jailed(newP)) {
 					Jail.suppressEscape(newP);
 					U.msg(newP, U.t("Смерть не освобождает от наказания.", Formatting.GRAY));
@@ -331,6 +334,7 @@ public class PizdecMod implements ModInitializer {
 				Jail.arrest(p, "порча королевского имущества", 90);
 				return false;
 			}
+			if (!Demokratovka.allowBreak(p, pos)) return false;
 			String deny = Docs.denyReason(p, pos);
 			if (deny != null) {
 				U.bar(p, U.t("🏛 Нельзя: " + deny, Formatting.RED));
@@ -345,6 +349,7 @@ public class PizdecMod implements ModInitializer {
 			if (world.isClient || !(player instanceof ServerPlayerEntity p) || p.isCreative()) return ActionResult.PASS;
 			if (Jail.jailed(p)) return ActionResult.FAIL;
 			var tags = entity.getCommandTags();
+			if (Demokratovka.onAttack(p, entity)) return ActionResult.FAIL;
 			if (Portraits.isPortrait(entity)) {
 				Portraits.onAttack(p, entity);
 				return ActionResult.FAIL;
@@ -495,6 +500,11 @@ public class PizdecMod implements ModInitializer {
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
 			String text = message.getSignedContent();
 			if (Docs.onChat(sender, text)) return false; // ответ на анкету паспортиста
+			PizdecState cst = PizdecState.get(sender.getServer());
+			if (cst.borderBuilt && sender.getServerWorld() == sender.getServer().getOverworld()
+					&& Border.outside(cst, sender.getPos()) > 0) {
+				return true; // за границей (и в Демократовке) — свобода слова: ни прослушки, ни Главлита
+			}
 			SecretPolice.onChat(sender, text); // прослушка (ничего не блокирует)
 			String low = text.toLowerCase();
 			if (low.contains("корол") || low.contains("king")) {
@@ -585,6 +595,10 @@ public class PizdecMod implements ModInitializer {
 				return ActionResult.SUCCESS;
 			}
 			if (tags.contains(Ceremonies.PARADE_TAG)) return ActionResult.FAIL;
+			if (Demokratovka.isTownNpc(entity)) {
+				if (hand == Hand.MAIN_HAND) Demokratovka.talk(p, entity);
+				return ActionResult.SUCCESS;
+			}
 			if (tags.contains(Castle.KING_TAG)) {
 				if (hand == Hand.MAIN_HAND) audience(p, entity.getBlockPos());
 				return ActionResult.SUCCESS;
@@ -999,6 +1013,7 @@ public class PizdecMod implements ModInitializer {
 		BlackMarket.commands(d);
 		Ceremonies.commands(d);
 		Archive.commands(d);
+		Demokratovka.commands(d);
 		d.register(CommandManager.literal("vyezd").executes(c -> {
 			Border.exit(c.getSource().getPlayerOrThrow());
 			return 1;

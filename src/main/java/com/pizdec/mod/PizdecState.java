@@ -57,6 +57,19 @@ public class PizdecState extends PersistentState {
 	public final java.util.List<String> trials = new java.util.ArrayList<>();
 	public final java.util.List<String> lawLog = new java.util.ArrayList<>();
 
+	// ---- 1.9: Демократовка
+	public boolean demoBuilt;
+	public int dx, dy, dz, demoTax = 5, demoElectionNo, demoElectionTicks;
+	public long demoTreasury = 500;
+	public double demoRate = 4.0;
+	public String mayorName = "Велосипедова Анна Сергеевна", demoLastResult = "";
+	public UUID mayor;
+	public final java.util.Set<UUID> demoCitizens = new java.util.HashSet<>();
+	public final java.util.Set<UUID> demoCandidates = new java.util.HashSet<>();
+	public final Map<UUID, String> demoVotes = new HashMap<>();
+	public final java.util.List<String> articles = new java.util.ArrayList<>();
+	public final java.util.List<String> demoCourt = new java.util.ArrayList<>();
+
 	static void putList(NbtCompound nbt, String key, java.util.List<String> l) {
 		nbt.putString(key, String.join("\n", l));
 	}
@@ -234,6 +247,23 @@ public class PizdecState extends PersistentState {
 		getList(nbt, "corruption", st.corruption);
 		getList(nbt, "trials", st.trials);
 		getList(nbt, "lawLog", st.lawLog);
+		st.demoBuilt = nbt.getBoolean("demoBuilt");
+		st.dx = nbt.getInt("dx");
+		st.dy = nbt.getInt("dy");
+		st.dz = nbt.getInt("dz");
+		if (nbt.contains("demoTax")) st.demoTax = nbt.getInt("demoTax");
+		st.demoElectionNo = nbt.getInt("demoElectionNo");
+		st.demoElectionTicks = nbt.getInt("demoElectionTicks");
+		if (nbt.contains("demoTreasury")) st.demoTreasury = nbt.getLong("demoTreasury");
+		if (nbt.contains("demoRate")) st.demoRate = nbt.getDouble("demoRate");
+		if (nbt.contains("mayorName")) st.mayorName = nbt.getString("mayorName");
+		st.demoLastResult = nbt.getString("demoLastResult");
+		if (nbt.containsUuid("mayor")) st.mayor = nbt.getUuid("mayor");
+		readMap(nbt, "demoCitizens", (id, c) -> st.demoCitizens.add(id));
+		readMap(nbt, "demoCandidates", (id, c) -> st.demoCandidates.add(id));
+		readMap(nbt, "demoVotes", (id, c) -> st.demoVotes.put(id, c.getString("v")));
+		getList(nbt, "articles", st.articles);
+		getList(nbt, "demoCourt", st.demoCourt);
 		int[] by = nbt.getIntArray("borderY");
 		if (by.length == 4) st.borderY = by;
 		for (String sp : nbt.getString("portraitSpots").split("\n")) if (!sp.isBlank()) st.portraitSpots.add(sp);
@@ -427,6 +457,33 @@ public class PizdecState extends PersistentState {
 		putList(nbt, "corruption", corruption);
 		putList(nbt, "trials", trials);
 		putList(nbt, "lawLog", lawLog);
+		nbt.putBoolean("demoBuilt", demoBuilt);
+		nbt.putInt("dx", dx);
+		nbt.putInt("dy", dy);
+		nbt.putInt("dz", dz);
+		nbt.putInt("demoTax", demoTax);
+		nbt.putInt("demoElectionNo", demoElectionNo);
+		nbt.putInt("demoElectionTicks", demoElectionTicks);
+		nbt.putLong("demoTreasury", demoTreasury);
+		nbt.putDouble("demoRate", demoRate);
+		nbt.putString("mayorName", mayorName);
+		nbt.putString("demoLastResult", demoLastResult);
+		if (mayor != null) nbt.putUuid("mayor", mayor);
+		NbtCompound dc = new NbtCompound();
+		demoCitizens.forEach(id -> dc.put(id.toString(), new NbtCompound()));
+		nbt.put("demoCitizens", dc);
+		NbtCompound dk = new NbtCompound();
+		demoCandidates.forEach(id -> dk.put(id.toString(), new NbtCompound()));
+		nbt.put("demoCandidates", dk);
+		NbtCompound dv = new NbtCompound();
+		demoVotes.forEach((id, v) -> {
+			NbtCompound c = new NbtCompound();
+			c.putString("v", v);
+			dv.put(id.toString(), c);
+		});
+		nbt.put("demoVotes", dv);
+		putList(nbt, "articles", articles);
+		putList(nbt, "demoCourt", demoCourt);
 		nbt.putString("portraitSpots", String.join("\n", portraitSpots));
 		nbt.putInt("electionNo", electionNo);
 		nbt.putInt("electionTicks", electionTicks);

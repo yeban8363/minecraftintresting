@@ -324,7 +324,8 @@ public final class Border {
 	public static boolean isContraband(ItemStack st) {
 		if (st.isEmpty()) return false;
 		return st.isOf(Items.TNT) || st.isOf(Items.END_CRYSTAL) || st.isOf(Items.TNT_MINECART) || Gui.isSpecial(st, "fake_diamond")
-				|| Gui.isSpecial(st, "leaflet") || foreignPrice(st) > 0;
+				|| Gui.isSpecial(st, "leaflet") || Gui.isSpecial(st, "banned_book") || Gui.isSpecial(st, "free_voice")
+				|| Gui.isSpecial(st, "secret_folder") || foreignPrice(st) > 0;
 	}
 
 	public static String label(ItemStack st) {
@@ -496,6 +497,11 @@ public final class Border {
 			if (Math.abs(o) < 48 && now % 20 == 0) borderVisuals(world, st, p);
 			if (p.isCreative()) continue;
 			if (o > 0) {
+				if (status != null && status != Long.MAX_VALUE && Demokratovka.citizen(p)) {
+					st.abroad.put(p.getUuid(), Long.MAX_VALUE);
+					st.markDirty();
+					continue;
+				}
 				if (status == null) {
 					crossing(p, st);
 				} else if (status > 0 && time > status) {
@@ -520,6 +526,13 @@ public final class Border {
 			if (status != null) {
 				st.abroad.remove(p.getUuid());
 				st.markDirty();
+				if (Demokratovka.citizen(p)) {
+					SecretPolice.add(p, 40, "гражданин Демократовки вернулся");
+					U.say(s, U.t("🚨 Гражданин Демократовки " + p.getName().getString() + " пересёк границу королевства. "
+							+ "Измена Родине не прощается.", Formatting.DARK_RED));
+					Jail.arrest(p, "измена Родине (гражданство Демократовки)", 180, true);
+					continue;
+				}
 				if (status < 0) {
 					SecretPolice.add(p, 30, "вернулся после незаконного выезда");
 					U.say(s, U.t("🚨 Беглец " + p.getName().getString() + " вернулся на родину. Родина встретила его каретой.",
