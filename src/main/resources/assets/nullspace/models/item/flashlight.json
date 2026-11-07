@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "nullspace:item/flashlight"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "nullspace:on": 1
+      },
+      "model": "nullspace:item/flashlight_on"
+    }
+  ]
+}

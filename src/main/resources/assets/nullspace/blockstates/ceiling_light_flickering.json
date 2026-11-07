@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=true": {
+      "model": "nullspace:block/ceiling_light"
+    },
+    "lit=false": {
+      "model": "nullspace:block/ceiling_light_off"
+    }
+  }
+}

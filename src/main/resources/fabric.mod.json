@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "nullspace",
+	"version": "${version}",
+	"name": "NULLSPACE",
+	"description": "Sometimes reality fails. You fall through it — into endless rooms, corridors and places that should not exist.",
+	"authors": ["rrobtop"],
+	"license": "All-Rights-Reserved",
+	"icon": "assets/nullspace/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.nullspace.NullspaceMod"],
+		"client": ["com.nullspace.client.NullspaceClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

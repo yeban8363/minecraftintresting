@@ -1,0 +1,58 @@
+{
+  "ambient.lamp_hum": {
+    "sounds": [
+      "nullspace:lamp_hum"
+    ]
+  },
+  "block.lamp_buzz": {
+    "sounds": [
+      "nullspace:lamp_buzz1",
+      "nullspace:lamp_buzz2"
+    ],
+    "subtitle": "subtitles.nullspace.lamp_buzz"
+  },
+  "ambient.steps_behind_wall": {
+    "sounds": [
+      "nullspace:step1",
+      "nullspace:step2",
+      "nullspace:step3"
+    ],
+    "subtitle": "subtitles.nullspace.steps"
+  },
+  "ambient.knock": {
+    "sounds": [
+      "nullspace:knock"
+    ],
+    "subtitle": "subtitles.nullspace.knock"
+  },
+  "ambient.distant": {
+    "sounds": [
+      "nullspace:distant1",
+      "nullspace:distant2",
+      "nullspace:distant3"
+    ],
+    "subtitle": "subtitles.nullspace.distant"
+  },
+  "ambient.breath": {
+    "sounds": [
+      "nullspace:breath"
+    ],
+    "subtitle": "subtitles.nullspace.breath"
+  },
+  "event.noclip_fall": {
+    "sounds": [
+      "nullspace:noclip_fall"
+    ]
+  },
+  "item.flashlight_click": {
+    "sounds": [
+      "nullspace:click"
+    ],
+    "subtitle": "subtitles.nullspace.click"
+  },
+  "music.silence": {
+    "sounds": [
+      "nullspace:silence"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+name: build-nullspace
+
+on:
+  push:
+    branches: [nullspace]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: chmod +x gradlew
+      - run: ./gradlew build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nullspace-jar
+          path: build/libs/*.jar
+      - name: Publish release "nullspace-latest"
+        if: github.ref == 'refs/heads/nullspace'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nullspace-latest -y --cleanup-tag || true
+          gh release create nullspace-latest build/libs/*.jar \
+            --title "NULLSPACE (последняя сборка)" \
+            --notes "Скачай .jar ниже и положи в .minecraft/mods вместе с Fabric API для 1.21.1. Нужен Fabric Loader для Minecraft 1.21.1." \
+            --target "${{ github.sha }}" \
+            --latest=false
