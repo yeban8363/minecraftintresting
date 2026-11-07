@@ -85,8 +85,10 @@ public final class Tax {
 		} else {
 			// брать нечего — вешаем долг и шлём коллектора
 			Money.add(p, -missing);
-			U.msg(p, U.t("   Брать нечего. Долг: " + missing + ". За тобой выехал коллектор.", Formatting.DARK_RED,
+			U.msg(p, U.t("   Брать нечего. Долг: " + missing + ". За тобой выехала карета.", Formatting.DARK_RED,
 					Formatting.BOLD));
+			Jail.arrest(p, "уклонение от налогов", 60);
+			return;
 		}
 		if (Money.get(p) < 0) sendCollector(p);
 	}

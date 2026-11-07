@@ -132,10 +132,16 @@ public final class Chaos {
 		ev("к %s внепланово выехал коллектор", Tax::sendCollector);
 
 		ev("%s выиграл в казино: +77 бабла", p -> Money.give(p, 77, "казино"));
+
+		ev("%s арестован просто так. Ну а что", p -> Jail.arrest(p, "просто так", 20));
+
+		ev("%s перепутали с опасным преступником", p -> Jail.arrest(p, "похож на фоторобот", 25));
+
+		ev("за %s приехала карета, но перепутала адрес. Штраф за ложный вызов −10", p -> Money.fine(p, 10, "ложный вызов кареты"));
 	}
 
 	public static void random(MinecraftServer s) {
-		List<ServerPlayerEntity> ps = U.players(s);
+		List<ServerPlayerEntity> ps = U.free(s);
 		if (ps.isEmpty()) return;
 		ServerPlayerEntity p = U.pick(ps);
 		Event e = U.pick(EVENTS);

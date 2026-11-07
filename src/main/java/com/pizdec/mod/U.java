@@ -43,6 +43,15 @@ public final class U {
 		return out;
 	}
 
+	/** Живые игроки на свободе (не в тюрьме и не в карете). */
+	public static List<ServerPlayerEntity> free(MinecraftServer s) {
+		List<ServerPlayerEntity> out = new ArrayList<>();
+		for (ServerPlayerEntity p : players(s)) {
+			if (!Jail.jailed(p)) out.add(p);
+		}
+		return out;
+	}
+
 	public static void say(MinecraftServer s, Text text) {
 		s.getPlayerManager().broadcast(text, false);
 	}
