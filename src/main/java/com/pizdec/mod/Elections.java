@@ -72,6 +72,7 @@ public final class Elections {
 		}
 		st.votes.put(p.getUuid(), party);
 		st.markDirty();
+		if (party != KING) SecretPolice.add(p, 3, "голосовал за «" + PARTIES.get(party).name() + "»");
 		Party pt = PARTIES.get(party);
 		U.title(p, U.t("🗳 ВАШ ГОЛОС УЧТЁН", Formatting.GOLD, Formatting.BOLD), U.t("Спасибо за гражданскую позицию", Formatting.GRAY));
 		U.msg(p, U.t("🗳 Бюллетень опущен в урну. Выбор: «" + pt.name() + "». Итоги — через " + minutesLeft(p.getServer())

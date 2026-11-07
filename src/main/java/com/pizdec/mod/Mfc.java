@@ -459,6 +459,9 @@ public final class Mfc {
 			set(15, icon(Items.PLAYER_HEAD, "§fЖильцы", "§7Вписать: /dom zhilec <игрок>", "§7Выписать: /dom vypisat <игрок>",
 					"§7До 5 жильцов. Им можно всё, что и вам."));
 			List<String> cr = PizdecState.get(player.getServer()).crimes.getOrDefault(player.getUuid(), List.of());
+			set(29, icon(Items.COMPASS, "§aРазрешение на выезд — 300", "§7Действует 20 минут, выезд — через КПП (/vyezd)",
+					Border.hasPermit(player) ? "§aУ вас есть действующее разрешение" : "§7Нужен паспорт, без долгов,",
+					"§7и чтобы тайная полиция была не против.", "§8Госпошлина при отказе не возвращается"));
 			set(31, icon(Items.IRON_BARS, "§7Ваши судимости: " + cr.size(), cr.isEmpty() ? "§aЧисты перед законом" : "§c" + cr.get(cr.size() - 1)));
 			set(53, icon(Items.BARRIER, "§cЗакрыть"));
 		}
@@ -467,6 +470,11 @@ public final class Mfc {
 		protected void click(int slot, int button) {
 			if (slot == 53) {
 				close();
+				return;
+			}
+			if (slot == 29) {
+				Border.issuePermit(player);
+				redraw();
 				return;
 			}
 			if (slot == 11) {

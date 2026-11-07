@@ -70,6 +70,8 @@ public class PizdecMod implements ModInitializer {
 			Prison.ensureBuilt(s);
 			Court.ensureBuilt(s);
 			Mfc.ensureBuilt(s);
+			Border.ensureBuilt(s);
+			Portraits.ensurePlaced(s);
 			Jail.onServerStart(s);
 			Court.onServerStart();
 			taxTimer = 0;
@@ -88,6 +90,8 @@ public class PizdecMod implements ModInitializer {
 			Court.onEntityLoad(entity);
 			Fpv.onEntityLoad(entity);
 			Tax.onEntityLoad(entity);
+			SecretPolice.onEntityLoad(entity);
+			Border.onEntityLoad(entity);
 		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> onJoin(handler.player));
@@ -96,6 +100,8 @@ public class PizdecMod implements ModInitializer {
 			Laws.forget(handler.player.getUuid());
 			Jail.onLeave(handler.player);
 			Tax.onLeave(handler.player);
+			SecretPolice.onLeave(handler.player);
+			Propaganda.onLeave(handler.player);
 		});
 
 		registerPaidStuff();
@@ -134,6 +140,11 @@ public class PizdecMod implements ModInitializer {
 		War.tick(s);
 		Tax.tick(s);
 		Jobs.tick(s);
+		Restaurant.tick(s);
+		SecretPolice.tick(s);
+		Border.tick(s);
+		Portraits.tick(s);
+		Propaganda.tick(s);
 		Gui.tickAll(s);
 
 		if (chaosTimer >= nextChaos) {
@@ -185,6 +196,13 @@ public class PizdecMod implements ModInitializer {
 					+ "иначе налоговая отправит тебя в тюрьму или на войну.", Formatting.RED));
 		}
 		if (War.exiled(p)) U.msg(p, U.t("⚔ Ты всё ещё на войне: " + War.secondsLeft(p) + " сек.", Formatting.DARK_RED));
+		if (st.borderBuilt) {
+			U.msg(p, U.t("🛂 Граница королевства закрыта: ±" + Border.R + " блоков от замка. Выезд — только через КПП "
+					+ "с разрешением МФЦ (/granica). В замке: статуя короля, «Вкусно и Точка», и ничего особенного.",
+					Formatting.DARK_GREEN));
+		}
+		SecretPolice.onJoin(p);
+		Border.onJoin(p);
 	}
 
 	// ------------------------------------------------------------------ платная жизнь и аресты
@@ -195,7 +213,8 @@ public class PizdecMod implements ModInitializer {
 
 	private static boolean royalArea(World world, BlockPos pos, PizdecState st) {
 		return world.getRegistryKey() == World.OVERWORLD
-				&& (Castle.inside(st, pos) || Prison.inside(st, pos) || Court.inside(st, pos) || Mfc.inside(st, pos));
+				&& (Castle.inside(st, pos) || Prison.inside(st, pos) || Court.inside(st, pos) || Mfc.inside(st, pos)
+						|| Border.inside(st, pos));
 	}
 
 	private static void registerPaidStuff() {
@@ -315,6 +334,34 @@ public class PizdecMod implements ModInitializer {
 			if (world.isClient || !(player instanceof ServerPlayerEntity p) || p.isCreative()) return ActionResult.PASS;
 			if (Jail.jailed(p)) return ActionResult.FAIL;
 			var tags = entity.getCommandTags();
+			if (Portraits.isPortrait(entity)) {
+				Portraits.onAttack(p, entity);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Restaurant.CASHIER_TAG) || tags.contains(Restaurant.CHEF_TAG)) {
+				Jail.arrest(p, "нападение на работника общепита", 45);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(SecretPolice.MAJOR_TAG) || tags.contains(SecretPolice.INTERROGATOR_TAG)) {
+				SecretPolice.add(p, 30, "нападение на сотрудника тайной полиции");
+				Jail.arrest(p, "нападение на сотрудника несуществующей службы", 150);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(SecretPolice.AGENT_TAG)) {
+				SecretPolice.add(p, 20, "напал на агента наружного наблюдения");
+				Jail.arrest(p, "нападение на неприметного гражданина", 90);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Border.OFFICER_TAG) || tags.contains(Border.CUSTOMS_TAG) || tags.contains(Border.GUARD_TAG)
+					|| tags.contains(Border.DUTYFREE_TAG)) {
+				SecretPolice.add(p, 20, "нападение на погранслужбу");
+				Jail.arrest(p, "нападение на пограничника при исполнении", 120);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Border.TOURIST_TAG) || tags.contains(Border.GUIDE_TAG)) {
+				Jail.arrest(p, "нападение на иностранного туриста (международный скандал)", 120);
+				return ActionResult.FAIL;
+			}
 			if (tags.contains(Castle.KING_TAG)) {
 				Jail.arrest(p, "покушение на Его Величество", 180);
 				return ActionResult.FAIL;
@@ -425,6 +472,7 @@ public class PizdecMod implements ModInitializer {
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
 			String text = message.getSignedContent();
 			if (Docs.onChat(sender, text)) return false; // ответ на анкету паспортиста
+			SecretPolice.onChat(sender, text); // прослушка (ничего не блокирует)
 			String low = text.toLowerCase();
 			if (low.contains("корол") || low.contains("king")) {
 				for (String bad : INSULTS) {
@@ -461,6 +509,42 @@ public class PizdecMod implements ModInitializer {
 				return ActionResult.SUCCESS;
 			}
 			if (tags.contains(Court.LAWYER_TAG)) return ActionResult.SUCCESS;
+			if (tags.contains(Restaurant.CASHIER_TAG)) {
+				if (hand == Hand.MAIN_HAND) Restaurant.cashierTalk(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Restaurant.CHEF_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("👨‍🍳 Шеф Гордей: «" + U.pick("Секрет шаурмы — государственная тайна.",
+							"Заказывай на кассе, на кухню нельзя.", "Король любит прожарку medium. И налоги — well done.",
+							"Картошку чистим вручную. Вручную тайной полиции.") + "»", Formatting.WHITE));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(SecretPolice.MAJOR_TAG)) {
+				if (hand == Hand.MAIN_HAND) SecretPolice.MajorGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(SecretPolice.INTERROGATOR_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("🕶 Следователь Сухов: «" + U.pick("Присаживайтесь. Пока по-хорошему.",
+							"Вы что-то хотели рассказать?", "Мы ещё увидимся.") + "»", Formatting.DARK_GRAY));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(SecretPolice.AGENT_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("👤 " + entity.getName().getString() + ": «" + U.pick("Я просто стою.", "Хорошая погода, да?",
+							"Я вас не знаю.", "Идите, идите. Я тоже как раз туда.") + "»", Formatting.GRAY));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Border.OFFICER_TAG) || tags.contains(Border.CUSTOMS_TAG) || tags.contains(Border.DUTYFREE_TAG)
+					|| tags.contains(Border.TOURIST_TAG) || tags.contains(Border.GUIDE_TAG)) {
+				if (hand == Hand.MAIN_HAND) Border.talk(p, entity);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Border.GUARD_TAG)) return ActionResult.SUCCESS;
 			if (tags.contains(Castle.KING_TAG)) {
 				if (hand == Hand.MAIN_HAND) audience(p, entity.getBlockPos());
 				return ActionResult.SUCCESS;
@@ -870,8 +954,53 @@ public class PizdecMod implements ModInitializer {
 			return 1;
 		}));
 
+		SecretPolice.commands(d);
+		d.register(CommandManager.literal("vyezd").executes(c -> {
+			Border.exit(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("granica").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			U.msg(p, U.t("🛂 Граница: квадрат ±" + Border.R + " блоков от замка. КПП: " + Border.checkpointsText(st)
+					+ ". Выезд: паспорт + разрешение (МФЦ, окно №4, 300) + подозрительность < 40 + без долгов → /vyezd у будки. "
+					+ "Импорт — контрабанда. Пешком через поле — тюрьма (шанс сбежать 0,5%)."
+					+ (Border.hasPermit(p) ? " У тебя есть разрешение." : ""), Formatting.DARK_GREEN));
+			return 1;
+		}));
+		d.register(CommandManager.literal("restoran").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			net.minecraft.util.math.Vec3d e = Restaurant.entrance(st);
+			U.msg(p, U.t("🍔 " + Restaurant.NAME + ": " + U.coords((int) e.x, (int) e.y, (int) e.z)
+					+ " (парламентский квартал замка, восточнее парламента). Заказ — у кассира Ксюши.", Formatting.AQUA));
+			return 1;
+		}));
+
 		d.register(CommandManager.literal("pizdec")
 				.requires(src -> src.hasPermissionLevel(2))
+				.then(CommandManager.literal("delo")
+						.then(CommandManager.argument("player", EntityArgumentType.player()).executes(c -> {
+							SecretPolice.showDossier(c.getSource(), EntityArgumentType.getPlayer(c, "player"));
+							return 1;
+						})))
+				.then(CommandManager.literal("podozrenie")
+						.then(CommandManager.argument("player", EntityArgumentType.player())
+								.then(CommandManager.argument("value", IntegerArgumentType.integer(0, 100)).executes(c -> {
+									ServerPlayerEntity t = EntityArgumentType.getPlayer(c, "player");
+									SecretPolice.set(t.getServer(), t.getUuid(), IntegerArgumentType.getInteger(c, "value"));
+									SecretPolice.note(t.getServer(), t.getUuid(), "подозрительность выставлена админом");
+									return 1;
+								}))))
+				.then(CommandManager.literal("dopros")
+						.then(CommandManager.argument("player", EntityArgumentType.player()).executes(c -> {
+							SecretPolice.interrogate(EntityArgumentType.getPlayer(c, "player"), "указ админа");
+							return 1;
+						})))
+				.then(CommandManager.literal("slava").executes(c -> {
+					Propaganda.minuteOfGlory(c.getSource().getServer());
+					return 1;
+				}))
 				.then(CommandManager.literal("tax").executes(c -> {
 					taxTimer = Tax.PERIOD;
 					return 1;

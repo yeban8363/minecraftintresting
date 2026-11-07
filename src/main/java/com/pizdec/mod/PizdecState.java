@@ -25,6 +25,25 @@ public class PizdecState extends PersistentState {
 	public int mx, my, mz;
 	public int passportSeq;
 	public int newsIssue;
+	public boolean portraitsPlaced;
+	public boolean borderBuilt;
+	public int warrantNo;
+	/** Подозрительность (тайная полиция): 0..100. */
+	public final Map<UUID, Integer> suspicion = new HashMap<>();
+	/** Досье: последние заметки тайной полиции. */
+	public final Map<UUID, java.util.List<String>> dossier = new HashMap<>();
+	/** Члены подполья «Свободная Картошка». */
+	public final java.util.Set<UUID> underground = new java.util.HashSet<>();
+	/** Разоблачённые подпольщики, которых не было в сети, — арест при входе. */
+	public final java.util.Set<UUID> wanted = new java.util.HashSet<>();
+	/** За границей: UUID → до какого мирового тика (отрицательное — нелегально). */
+	public final Map<UUID, Long> abroad = new HashMap<>();
+	/** Завербованные осведомители. */
+	public final java.util.Set<UUID> informants = new java.util.HashSet<>();
+	/** Высота земли у четырёх КПП. */
+	public int[] borderY = new int[4];
+	/** Места портретов: "variant;x;y;z;facing". */
+	public final java.util.List<String> portraitSpots = new java.util.ArrayList<>();
 	public int electionNo;
 	public int electionTicks;
 	public int billNo;
@@ -164,6 +183,22 @@ public class PizdecState extends PersistentState {
 		st.mz = nbt.getInt("mz");
 		st.passportSeq = nbt.getInt("passportSeq");
 		st.newsIssue = nbt.getInt("newsIssue");
+		st.portraitsPlaced = nbt.getBoolean("portraitsPlaced");
+		st.borderBuilt = nbt.getBoolean("borderBuilt");
+		st.warrantNo = nbt.getInt("warrantNo");
+		readMap(nbt, "suspicion", (id, c) -> st.suspicion.put(id, c.getInt("v")));
+		readMap(nbt, "dossier", (id, c) -> {
+			java.util.List<String> l = new java.util.ArrayList<>();
+			for (String line : c.getString("list").split("\n")) if (!line.isBlank()) l.add(line);
+			st.dossier.put(id, l);
+		});
+		readMap(nbt, "underground", (id, c) -> st.underground.add(id));
+		readMap(nbt, "wantedList", (id, c) -> st.wanted.add(id));
+		readMap(nbt, "abroad", (id, c) -> st.abroad.put(id, c.getLong("until")));
+		readMap(nbt, "informants", (id, c) -> st.informants.add(id));
+		int[] by = nbt.getIntArray("borderY");
+		if (by.length == 4) st.borderY = by;
+		for (String sp : nbt.getString("portraitSpots").split("\n")) if (!sp.isBlank()) st.portraitSpots.add(sp);
 		st.electionNo = nbt.getInt("electionNo");
 		st.electionTicks = nbt.getInt("electionTicks");
 		st.billNo = nbt.getInt("billNo");
@@ -309,6 +344,41 @@ public class PizdecState extends PersistentState {
 		nbt.putInt("mz", mz);
 		nbt.putInt("passportSeq", passportSeq);
 		nbt.putInt("newsIssue", newsIssue);
+		nbt.putBoolean("portraitsPlaced", portraitsPlaced);
+		nbt.putBoolean("borderBuilt", borderBuilt);
+		nbt.putInt("warrantNo", warrantNo);
+		NbtCompound su = new NbtCompound();
+		suspicion.forEach((id, v) -> {
+			NbtCompound c = new NbtCompound();
+			c.putInt("v", v);
+			su.put(id.toString(), c);
+		});
+		nbt.put("suspicion", su);
+		NbtCompound ds = new NbtCompound();
+		dossier.forEach((id, l) -> {
+			NbtCompound c = new NbtCompound();
+			c.putString("list", String.join("\n", l));
+			ds.put(id.toString(), c);
+		});
+		nbt.put("dossier", ds);
+		NbtCompound ug = new NbtCompound();
+		underground.forEach(id -> ug.put(id.toString(), new NbtCompound()));
+		nbt.put("underground", ug);
+		NbtCompound wl = new NbtCompound();
+		wanted.forEach(id -> wl.put(id.toString(), new NbtCompound()));
+		nbt.put("wantedList", wl);
+		NbtCompound ab = new NbtCompound();
+		abroad.forEach((id, v) -> {
+			NbtCompound c = new NbtCompound();
+			c.putLong("until", v);
+			ab.put(id.toString(), c);
+		});
+		nbt.put("abroad", ab);
+		NbtCompound inf = new NbtCompound();
+		informants.forEach(id -> inf.put(id.toString(), new NbtCompound()));
+		nbt.put("informants", inf);
+		nbt.putIntArray("borderY", borderY);
+		nbt.putString("portraitSpots", String.join("\n", portraitSpots));
 		nbt.putInt("electionNo", electionNo);
 		nbt.putInt("electionTicks", electionTicks);
 		nbt.putInt("billNo", billNo);

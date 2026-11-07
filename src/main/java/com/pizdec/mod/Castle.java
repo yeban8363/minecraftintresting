@@ -30,7 +30,7 @@ import static com.pizdec.mod.B.*;
  */
 public final class Castle {
 	public static final int SX = 57, SZ = 45;
-	public static final int VERSION = 3;
+	public static final int VERSION = 4;
 	public static final int PARLIAMENT_SEATS = 210;
 
 	public static final String VERSION_TAG = "pizdec_v2";
@@ -52,7 +52,8 @@ public final class Castle {
 	/** Все «наши» постоянные жители — у старых версий нет VERSION_TAG, их убираем. */
 	public static final String[] NPC_TAGS = {KING_TAG, INSPECTOR_TAG, JESTER_TAG, SHOP_TAG, CASINO_TAG, UPGRADER_TAG, HR_TAG,
 			RECEPTION_TAG, CAPTAIN_TAG, TREASURER_TAG, SECRETARY_TAG, GATE_GUARD_TAG, "pizdec_guard", "pizdec_judge",
-			"pizdec_prosecutor", "pizdec_jury"};
+			"pizdec_prosecutor", "pizdec_jury", Restaurant.CASHIER_TAG, Restaurant.CHEF_TAG, SecretPolice.MAJOR_TAG,
+			SecretPolice.INTERROGATOR_TAG};
 	public static final String KING_NAME = "Король Пиздец III";
 
 	private Castle() {}
@@ -61,7 +62,7 @@ public final class Castle {
 
 	public static boolean inside(PizdecState st, BlockPos p) {
 		return st.castleBuilt && p.getX() >= st.cx - 5 && p.getX() <= st.cx + SX + 4 && p.getZ() >= st.cz - 5
-				&& p.getZ() <= st.cz + SZ + 44 && p.getY() >= st.cy - 8 && p.getY() <= st.cy + 24;
+				&& p.getZ() <= st.cz + SZ + 44 && p.getY() >= st.cy - 8 && p.getY() <= st.cy + 32;
 	}
 
 	public static BlockPos thronePos(PizdecState st) {
@@ -163,15 +164,26 @@ public final class Castle {
 		} else if (st.version < 2) {
 			migrate(s, st);
 		} else if (st.version < VERSION) {
-			// версия 3: парламентский квартал, телевизоры, газетный киоск
-			loadChunks(st.cx - 8, st.cz + 40, st.cx + SX + 8, st.cz + SZ + 46);
-			parliamentQuarter(st.cx, st.cy, st.cz);
-			tvsAndNewsstand(st.cx, st.cy, st.cz);
-			spawnParliamentNpcs(world, st);
+			if (st.version < 3) {
+				// версия 3: парламентский квартал, телевизоры, газетный киоск
+				loadChunks(st.cx - 8, st.cz + 40, st.cx + SX + 8, st.cz + SZ + 46);
+				parliamentQuarter(st.cx, st.cy, st.cz);
+				tvsAndNewsstand(st.cx, st.cy, st.cz);
+				spawnParliamentNpcs(world, st);
+				initSeats(s);
+				U.say(s, U.t("🏛 К замку пристроен парламентский квартал. Выборы — раз в 30 минут!", Formatting.GOLD));
+			}
+			// версия 4: статуя короля, ресторан, тайная полиция
+			loadChunks(st.cx - 8, st.cz - 8, st.cx + SX + 8, st.cz + SZ + 46);
+			statue(st.cx, st.cy, st.cz);
+			Restaurant.build(st.cx, st.cy, st.cz);
+			SecretPolice.buildHq(st.cx, st.cy, st.cz);
+			Restaurant.spawnNpcs(world, st);
+			SecretPolice.spawnNpcs(world, st);
 			st.version = VERSION;
 			st.markDirty();
-			initSeats(s);
-			U.say(s, U.t("🏛 К замку пристроен парламентский квартал. Выборы — раз в 30 минут!", Formatting.GOLD));
+			U.say(s, U.t("🗿 Во дворе замка воздвигнута Огромная статуя Его Величества. В квартале открылись ресторан "
+					+ "«Вкусно и Точка» и «Управление по делам ничего особенного».", Formatting.GOLD));
 		}
 	}
 
@@ -265,11 +277,9 @@ public final class Castle {
 		fill(ox + 26, oy - 1, oz + 23, ox + 41, oy - 1, oz + 24, Blocks.POLISHED_ANDESITE);
 		fill(ox + 39, oy - 1, oz + 24, ox + 41, oy - 1, oz + 33, Blocks.POLISHED_ANDESITE);
 		fill(ox + 15, oy - 1, oz + 5, ox + 41, oy - 1, oz + 6, Blocks.STONE_BRICKS);
-		fountain(ox + 28, oy, oz + 18);
-		for (int z : new int[] {8, 14, 22}) {
-			lampPost(ox + 25, oy, oz + z);
-			lampPost(ox + 31, oy, oz + z);
-		}
+		lampPost(ox + 25, oy, oz + 8);
+		lampPost(ox + 31, oy, oz + 8);
+		statue(ox, oy, oz);
 
 		market(ox, oy, oz);
 		taxOffice(ox, oy, oz);
@@ -279,6 +289,107 @@ public final class Castle {
 		keep(ox, oy, oz);
 		parliamentQuarter(ox, oy, oz);
 		tvsAndNewsstand(ox, oy, oz);
+		Restaurant.build(ox, oy, oz);
+		SecretPolice.buildHq(ox, oy, oz);
+	}
+
+	// ------------------------------------------------------------------ Огромная статуя короля
+
+	/** Статуя во дворе (x 24..32, z 14..22), лицом к воротам (на север). ~25 блоков. */
+	private static void statue(int ox, int oy, int oz) {
+		// убираем фонтан и старые фонари, мостим площадь
+		clear(ox + 23, oy, oz + 13, ox + 32, oy + 30, oz + 23);
+		fill(ox + 23, oy - 1, oz + 13, ox + 32, oy - 1, oz + 23, Blocks.POLISHED_ANDESITE);
+		int x0 = ox + 24, x1 = ox + 32, z0 = oz + 14, z1 = oz + 22;
+		// постамент: нижняя ступень — плиты (по ней можно ходить), выше — чёрный камень с золотом
+		fill(x0, oy, z0, x1, oy, z1, Blocks.POLISHED_DEEPSLATE_SLAB);
+		fill(x0 + 1, oy, z0 + 1, x1 - 1, oy + 2, z1 - 1, Blocks.POLISHED_BLACKSTONE_BRICKS);
+		for (int[] c : new int[][] {{x0 + 1, z0 + 1}, {x1 - 1, z0 + 1}, {x0 + 1, z1 - 1}, {x1 - 1, z1 - 1}}) {
+			fill(c[0], oy, c[1], c[0], oy + 2, c[1], Blocks.GOLD_BLOCK);
+		}
+		set(ox + 28, oy + 1, z0 + 1, Blocks.SEA_LANTERN); // подсветка лица
+		for (int[] c : new int[][] {{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+			// громкоговорители на столбах по углам
+			set(c[0], oy, c[1], Blocks.DARK_OAK_FENCE);
+			set(c[0], oy + 1, c[1], Blocks.DARK_OAK_FENCE);
+			set(c[0], oy + 2, c[1], Blocks.DARK_OAK_FENCE);
+			set(c[0], oy + 3, c[1], Blocks.NOTE_BLOCK);
+			set(c[0], oy + 4, c[1], Blocks.LANTERN);
+		}
+		int b = oy + 3; // ступни
+		// подол мантии с горностаем
+		fill(ox + 25, b, oz + 16, ox + 31, b, oz + 20, Blocks.WHITE_WOOL);
+		for (int x = 25; x <= 31; x += 2) set(ox + x, b, oz + 16, Blocks.BLACK_WOOL);
+		set(ox + 26, b, oz + 15, Blocks.BLACK_CONCRETE); // носки сапог
+		set(ox + 30, b, oz + 15, Blocks.BLACK_CONCRETE);
+		// мантия: расширяется книзу
+		for (int y = b + 1; y <= b + 9; y++) {
+			int wdt = y <= b + 4 ? 3 : 2;
+			fill(ox + 28 - wdt, y, oz + 16, ox + 28 + wdt, y, oz + 20, Blocks.RED_WOOL);
+			set(ox + 28, y, oz + 16, (y - b) % 3 == 0 ? Blocks.BLACK_WOOL : Blocks.WHITE_WOOL); // горностаевая полоса
+		}
+		fill(ox + 26, b + 6, oz + 16, ox + 30, b + 6, oz + 20, Blocks.GOLD_BLOCK); // пояс
+		// плащ за спиной
+		fill(ox + 25, b + 1, oz + 21, ox + 31, b + 11, oz + 21, Blocks.RED_CONCRETE);
+		fill(ox + 26, b, oz + 21, ox + 30, b, oz + 21, Blocks.RED_CONCRETE);
+		// плечи и грудь
+		fill(ox + 25, b + 10, oz + 16, ox + 31, b + 11, oz + 20, Blocks.RED_WOOL);
+		fill(ox + 25, b + 12, oz + 16, ox + 31, b + 12, oz + 20, Blocks.WHITE_WOOL); // горностаевый воротник
+		// золотая цепь и медальон
+		fill(ox + 26, b + 11, oz + 15, ox + 30, b + 11, oz + 15, Blocks.GOLD_BLOCK);
+		fill(ox + 27, b + 10, oz + 15, ox + 29, b + 10, oz + 15, Blocks.GOLD_BLOCK);
+		set(ox + 28, b + 9, oz + 15, Blocks.EMERALD_BLOCK);
+		// руки
+		for (int x : new int[] {24, 32}) {
+			fill(ox + x, b + 8, oz + 16, ox + x, b + 11, oz + 18, Blocks.RED_WOOL);
+			set(ox + x, b + 8, oz + 15, Blocks.SMOOTH_SANDSTONE); // кисть
+		}
+		// скипетр (в правой руке, восток) и держава (в левой, запад)
+		fill(ox + 32, b + 9, oz + 15, ox + 32, b + 15, oz + 15, Blocks.GOLD_BLOCK);
+		set(ox + 32, b + 16, oz + 15, Blocks.DIAMOND_BLOCK);
+		set(ox + 32, b + 17, oz + 15, Blocks.END_ROD);
+		set(ox + 24, b + 9, oz + 15, Blocks.GOLD_BLOCK);
+		set(ox + 24, b + 10, oz + 15, Blocks.EMERALD_BLOCK);
+		set(ox + 24, b + 11, oz + 15, Blocks.END_ROD);
+		// голова
+		fill(ox + 26, b + 13, oz + 16, ox + 30, b + 17, oz + 20, Blocks.SMOOTH_SANDSTONE);
+		fill(ox + 26, b + 14, oz + 20, ox + 30, b + 17, oz + 20, Blocks.BROWN_WOOL); // волосы сзади
+		for (int x : new int[] {26, 30}) fill(ox + x, b + 15, oz + 17, ox + x, b + 17, oz + 20, Blocks.BROWN_WOOL);
+		set(ox + 27, b + 16, oz + 16, Blocks.BLACK_CONCRETE); // глаза
+		set(ox + 29, b + 16, oz + 16, Blocks.BLACK_CONCRETE);
+		set(ox + 27, b + 17, oz + 16, Blocks.BROWN_WOOL); // брови
+		set(ox + 29, b + 17, oz + 16, Blocks.BROWN_WOOL);
+		set(ox + 28, b + 15, oz + 15, Blocks.SMOOTH_SANDSTONE); // нос
+		// борода и усы
+		fill(ox + 26, b + 12, oz + 15, ox + 30, b + 13, oz + 15, Blocks.WHITE_WOOL);
+		fill(ox + 27, b + 11, oz + 14, ox + 29, b + 12, oz + 14, Blocks.WHITE_WOOL);
+		set(ox + 28, b + 10, oz + 14, Blocks.WHITE_WOOL);
+		fill(ox + 26, b + 14, oz + 15, ox + 27, b + 14, oz + 15, Blocks.WHITE_WOOL);
+		fill(ox + 29, b + 14, oz + 15, ox + 30, b + 14, oz + 15, Blocks.WHITE_WOOL);
+		set(ox + 28, b + 14, oz + 15, Blocks.PINK_TERRACOTTA); // рот
+		// корона
+		for (int x = 26; x <= 30; x++) {
+			for (int z = 16; z <= 20; z++) {
+				boolean rim = x == 26 || x == 30 || z == 16 || z == 20;
+				set(ox + x, b + 18, oz + z, rim ? Blocks.GOLD_BLOCK : Blocks.RED_WOOL);
+				if (rim && (x + z) % 2 == 0) set(ox + x, b + 19, oz + z, Blocks.GOLD_BLOCK);
+			}
+		}
+		for (int[] c : new int[][] {{26, 16}, {30, 16}, {26, 20}, {30, 20}, {28, 16}}) set(ox + c[0], b + 20, oz + c[1], Blocks.GOLD_BLOCK);
+		set(ox + 28, b + 19, oz + 16, Blocks.DIAMOND_BLOCK);
+		set(ox + 26, b + 19, oz + 18, Blocks.EMERALD_BLOCK);
+		set(ox + 30, b + 19, oz + 18, Blocks.EMERALD_BLOCK);
+		set(ox + 28, b + 19, oz + 20, Blocks.REDSTONE_BLOCK);
+		set(ox + 28, b + 19, oz + 18, Blocks.RED_WOOL);
+		set(ox + 28, b + 20, oz + 18, Blocks.GOLD_BLOCK);
+		set(ox + 28, b + 21, oz + 18, Blocks.GOLD_BLOCK);
+		set(ox + 27, b + 21, oz + 18, Blocks.GOLD_BLOCK);
+		set(ox + 29, b + 21, oz + 18, Blocks.GOLD_BLOCK);
+		set(ox + 28, b + 22, oz + 18, Blocks.DIAMOND_BLOCK);
+		// таблички на постаменте
+		Restaurant.sign(ox + 28, oy + 1, z0, Direction.NORTH, "§lКОРОЛЬ", "§lПИЗДЕЦ III", "Отец народа", "Налоги — любовь");
+		Restaurant.sign(ox + 26, oy + 1, z0, Direction.NORTH, "Высота: 25 бл.", "Любовь народа:", "146%", "(по данным ЦИК)");
+		Restaurant.sign(ox + 30, oy + 1, z0, Direction.NORTH, "Поклонись!", "(присядь)", "Король видит.", "Мы — тоже.");
 	}
 
 	// ------------------------------------------------------------------ ТВ и газеты
@@ -317,10 +428,8 @@ public final class Castle {
 		fill(ox + 15, oy - 1, oz + 43, ox + 17, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
 		fill(ox + 39, oy - 1, oz + 43, ox + 41, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
 		fill(ox + 15, oy - 1, oz + 46, ox + 41, oy - 1, oz + 48, Blocks.POLISHED_ANDESITE);
-		for (int z : new int[] {60, 70, 80}) {
-			lampPost(ox + 6, oy, oz + z);
-			lampPost(ox + 50, oy, oz + z);
-		}
+		lampPost(ox + 6, oy, oz + 80);
+		lampPost(ox + 50, oy, oz + 80);
 
 		// --- здание парламента x 10..46, z 50..80
 		int x0 = ox + 10, x1 = ox + 46, z0 = oz + 50, z1 = oz + 80, h = 11;
@@ -776,6 +885,8 @@ public final class Castle {
 		npc(world, ox + 48.5, oy, oz + 37.5, 180f, TREASURER_TAG, U.t("💰 Казначей Аркадий", Formatting.GOLD),
 				VillagerProfession.CARTOGRAPHER);
 		spawnParliamentNpcs(world, st);
+		Restaurant.spawnNpcs(world, st);
+		SecretPolice.spawnNpcs(world, st);
 		for (double gx : new double[] {25.5, 31.5}) {
 			IronGolemEntity g = EntityType.IRON_GOLEM.create(world);
 			if (g == null) continue;

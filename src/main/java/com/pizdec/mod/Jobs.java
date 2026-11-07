@@ -88,6 +88,12 @@ public final class Jobs {
 		job("deputy", "Депутат парламента", Items.WRITABLE_BOOK,
 				"заседать в зале парламента секунд (+20 за голос по законопроекту)", 60, 150, 3,
 				p -> Money.get(p) >= 500, "500+ бабла (избирательный залог)");
+		// версия 1.7
+		job("waiter", "Работник «Вкусно и Точка»", Items.COOKED_BEEF,
+				"простоять в ресторане секунд (+5 за каждый заказ, заказы готовятся быстрее)", 60, 50, 0);
+		job("agent", "Сотрудник тайной полиции", Items.ENDER_EYE,
+				"ничего: /slezhka (+15), /order (+30), /dopros (+40), сигналы граждан (+5)", 0, 0, 4,
+				p -> SecretPolice.get(p) < 10, "подозрительность < 10 (проверка в базе)");
 	}
 
 	private Jobs() {}
@@ -99,7 +105,12 @@ public final class Jobs {
 		return null;
 	}
 
-	private static boolean is(ServerPlayerEntity p, String id) {
+	/** Пассивная надбавка к зарплате за смену. */
+	public static void share(ServerPlayerEntity p, int n) {
+		taxShare.merge(p.getUuid(), n, Integer::sum);
+	}
+
+	public static boolean is(ServerPlayerEntity p, String id) {
 		Job j = jobOf(p);
 		return j != null && j.id.equals(id);
 	}
@@ -242,6 +253,7 @@ public final class Jobs {
 					if (j.id.equals("assistant") && Castle.inThroneHall(st, pos)) add(p, 1);
 					if (j.id.equals("warden") && Prison.inside(st, pos)) add(p, 1);
 					if (j.id.equals("deputy") && Castle.inParliament(st, pos)) add(p, 1);
+					if (j.id.equals("waiter") && Restaurant.inside(st, pos)) add(p, 1);
 				}
 				if (j.id.equals("courier")) {
 					Vec3d now = p.getPos();
@@ -266,7 +278,7 @@ public final class Jobs {
 			if (j == null) continue;
 			int salary;
 			boolean done;
-			if (j.id.equals("tax_helper") || j.id.equals("bailiff") || j.id.equals("spy")) {
+			if (j.id.equals("tax_helper") || j.id.equals("bailiff") || j.id.equals("spy") || j.id.equals("agent")) {
 				salary = taxShare.getOrDefault(p.getUuid(), 0);
 				done = true;
 			} else if (j.id.equals("banker")) {
@@ -360,7 +372,7 @@ public final class Jobs {
 	// ------------------------------------------------------------------ биржа труда
 
 	public static final class JobsGui extends Gui {
-		private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37};
+		private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39};
 
 		private JobsGui(int syncId, PlayerInventory pinv, SimpleInventory inv, ServerPlayerEntity p) {
 			super(syncId, pinv, inv, p);

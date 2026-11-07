@@ -87,7 +87,7 @@ public final class Jail {
 
 	/** В тюрьме, в суде, в карете или на войне. */
 	public static boolean busy(ServerPlayerEntity p) {
-		return jailed(p) || War.exiled(p);
+		return jailed(p) || War.exiled(p) || SecretPolice.interrogating(p) || Border.abroad(p);
 	}
 
 	public static boolean jailed(ServerPlayerEntity p) {
@@ -185,6 +185,7 @@ public final class Jail {
 		st.arrests++;
 		st.markDirty();
 		Jobs.onArrest(s, p);
+		SecretPolice.add(p, 8, "арест: " + crime);
 
 		U.say(s, U.t("🚔 " + p.getName().getString() + " арестован за " + crime + ". Срок: " + ticks / 20 + " сек.",
 				Formatting.RED));
