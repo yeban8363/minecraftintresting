@@ -70,6 +70,11 @@ public final class Elections {
 			U.msg(p, U.t("🗳 ЦИК: «Вы уже проголосовали. Дважды голосуют только мёртвые души.»", Formatting.RED));
 			return;
 		}
+		if (party == Politics.disqualified) {
+			U.msg(p, U.t("🗳 ЦИК: «Эта партия снята с выборов. Бюллетень испорчен. Можете проголосовать за оставшихся.»",
+					Formatting.RED));
+			return;
+		}
 		st.votes.put(p.getUuid(), party);
 		st.markDirty();
 		if (party != KING) SecretPolice.add(p, 3, "голосовал за «" + PARTIES.get(party).name() + "»");
@@ -100,8 +105,11 @@ public final class Elections {
 					st.votes.containsKey(player.getUuid()) ? "§aВы уже проголосовали" : "§eНужен паспорт"));
 			for (int i = 0; i < PARTIES.size(); i++) {
 				Party pt = PARTIES.get(i);
-				set(SLOTS[i], icon(pt.icon(), pt.color() + "§l" + pt.name(), "§7Лидер: " + pt.leader(), "§7«" + pt.slogan() + "»",
-						"§7Мест в парламенте: " + st.seats[i], "§eЛКМ — отдать голос"));
+				boolean dq = i == Politics.disqualified;
+				set(SLOTS[i], icon(dq ? Items.BARRIER : pt.icon(), (dq ? "§m" : "") + pt.color() + "§l" + pt.name(),
+						"§7Лидер: " + pt.leader(), "§7«" + pt.slogan() + "»", "§7Мест в парламенте: " + st.seats[i],
+						i == KING ? "§6Правящая партия" : Politics.POCKET.contains(i) ? "§7Системная оппозиция" : "§7Оппозиция",
+						dq ? "§cСНЯТА С ВЫБОРОВ" : "§eЛКМ — отдать голос"));
 			}
 			set(40, icon(Items.BOOK, "§7Прошлые итоги", st.lastResult.isEmpty() ? "§7Выборов ещё не было" : "§7" + st.lastResult));
 			set(53, icon(Items.BARRIER, "§cЗакрыть"));
@@ -145,6 +153,11 @@ public final class Elections {
 		}
 		share[KING] = crown;
 		for (int i = 1; i < w.length; i++) share[i] = rest * w[i] / sum;
+		int dq = Politics.disqualified;
+		if (dq > 0 && dq < share.length) {
+			share[KING] += share[dq];
+			share[dq] = 0;
+		}
 		return share;
 	}
 
@@ -191,6 +204,7 @@ public final class Elections {
 		}
 		U.say(s, U.t("🗳 Председатель ЦИК Нина Подсчётова: «Выборы прошли честно, прозрачно и с первой попытки.»", Formatting.GRAY));
 		st.lastResult = "№" + st.electionNo + ": " + res;
+		Politics.afterElection(s, new java.util.HashMap<>(st.votes));
 		st.votes.clear();
 		st.markDirty();
 		Castle.paintSeats(s);
@@ -234,6 +248,7 @@ public final class Elections {
 		st.electionTicks++;
 		if (st.electionTicks % 1200 == 0) st.markDirty();
 		int left = CYCLE - st.electionTicks;
+		if (left == 20 * 60 * 10) Politics.beforeElection(s);
 		if (left == 20 * 60 * 5) {
 			U.say(s, U.t("🗳 До выборов в парламент 5 минут! Голосовать — ЦИК в здании парламента (паспорт обязателен). /vybory",
 					Formatting.GOLD));
@@ -282,14 +297,10 @@ public final class Elections {
 		Laws.Law l = bill;
 		bill = null;
 		billTicks = -1;
-		int total = Castle.PARLIAMENT_SEATS;
-		int against = U.R.nextInt(6);
-		for (int v : billVotes.values()) if (v == 1) against++;
-		int abst = U.R.nextInt(4);
-		for (int v : billVotes.values()) if (v == 2) abst++;
-		against = Math.min(against, total / 10);
-		abst = Math.min(abst, total / 20);
-		int za = total - against - abst - U.R.nextInt(3);
+		StringBuilder comment = new StringBuilder();
+		int[] res = Politics.billResult(st, billVotes, comment);
+		int za = res[0], against = res[1], abst = res[2];
+		U.say(s, U.t("🏛 " + comment, Formatting.GRAY));
 		U.say(s, U.t("🏛 Парламент принял закон №" + st.billNo + " «" + l.title + "»: за — " + za + ", против — " + against
 				+ ", воздержались — " + abst + ". Король подписал. Закон вступает в силу немедленно.", Formatting.GOLD));
 		billVotes.clear();

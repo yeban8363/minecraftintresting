@@ -83,6 +83,18 @@ public final class Shop extends Gui {
 		add(() -> Court.lawyerContract(3), 600);
 	}
 
+	public static int offers() {
+		return OFFERS.size();
+	}
+
+	public static ItemStack offerStack(int i) {
+		return OFFERS.get(i).stack.get();
+	}
+
+	public static int offerPrice(int i) {
+		return OFFERS.get(i).price;
+	}
+
 	private Shop(int syncId, PlayerInventory pinv, SimpleInventory inv, ServerPlayerEntity p) {
 		super(syncId, pinv, inv, p);
 		redraw();
@@ -110,7 +122,14 @@ public final class Shop extends Gui {
 			Offer o = OFFERS.get(i);
 			ItemStack st = o.stack.get();
 			String name = st.getName().getString() + (st.getCount() > 1 ? " ×" + st.getCount() : "");
-			set(i, icon(st, "§f" + name, "§6Цена: " + price(o.price) + " бабла", "§7ЛКМ — купить"));
+			if (BlackMarket.shortage(i)) {
+				set(i, icon(Items.BARRIER, "§c" + name + " — НЕТ В НАЛИЧИИ", "§7Дефицит. Завоз ожидается.",
+						"§7Ваше место в очереди: " + (40 + (i * 37 + player.getId()) % 300), "§8Это не дефицит, это повышенный спрос"));
+				continue;
+			}
+			int left = BlackMarket.limited(i);
+			set(i, icon(st, "§f" + name, "§6Цена: " + price(o.price) + " бабла",
+					left > 0 ? "§e§lВЫБРОСИЛИ! Осталось: " + left + " шт." : "§7ЛКМ — купить"));
 		}
 		set(49, icon(Items.GOLD_NUGGET, "§6Твоё бабло: " + Money.get(player)));
 		String note = Laws.is("shop_sale") ? "§aСейчас распродажа −50%!"
@@ -132,6 +151,11 @@ public final class Shop extends Gui {
 			return;
 		}
 		if (slot >= OFFERS.size() || slot >= 45) return;
+		if (BlackMarket.shortage(slot)) {
+			U.msg(player, U.t("🛒 Торговец Жорик: «Нету. Завоз — в четверг. В какой — не скажу.» (Говорят, на чёрном рынке есть: /rynok)",
+					Formatting.GRAY));
+			return;
+		}
 		Offer o = OFFERS.get(slot);
 		int cost = price(o.price);
 		if (Laws.is("shop_closed")) {
@@ -140,6 +164,7 @@ public final class Shop extends Gui {
 		}
 		if (Money.pay(player, cost, "покупку")) {
 			player.getInventory().offerOrDrop(o.stack.get());
+			BlackMarket.onBought(player.getServer(), slot);
 			Laws.onBuy(player);
 			if (Laws.is("cashback") && cost >= 4) Money.give(player, cost * 3 / 10, "кэшбэк");
 			U.sound(player, SoundEvents.ENTITY_VILLAGER_YES, 1f, 1f);

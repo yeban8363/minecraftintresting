@@ -220,6 +220,11 @@ public final class Restaurant {
 			U.msg(p, U.t("🍔 Ксюша: «У вас уже три заказа в работе. Не жадничайте.»", Formatting.GRAY));
 			return;
 		}
+		if (BlackMarket.dishShort(MENU.indexOf(d))) {
+			U.msg(p, U.t("🍔 Ксюша: «" + d.name.replaceAll("§.", "") + " — нет. Поставщик… ну, вы понимаете. Возьмите пирожок.»",
+					Formatting.GRAY));
+			return;
+		}
 		int price = d.price * Laws.priceMult();
 		boolean free = Laws.is("free_burger");
 		if (free) price = 0;
@@ -303,6 +308,10 @@ public final class Restaurant {
 			boolean free = Laws.is("free_burger");
 			for (int i = 0; i < MENU.size() && i < SLOTS.length; i++) {
 				Dish d = MENU.get(i);
+				if (BlackMarket.dishShort(i)) {
+					set(SLOTS[i], icon(Items.BARRIER, d.name + " §c— нет в наличии", "§7Временно повышенный спрос"));
+					continue;
+				}
 				set(SLOTS[i], icon(iconOf(d), d.name + " §7— " + (free ? "§aбесплатно" : "§e" + d.price * mult + " бабла"),
 						"§7" + d.desc, "§eЛКМ — заказать"));
 			}

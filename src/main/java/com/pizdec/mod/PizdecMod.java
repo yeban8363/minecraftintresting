@@ -72,6 +72,7 @@ public class PizdecMod implements ModInitializer {
 			Mfc.ensureBuilt(s);
 			Border.ensureBuilt(s);
 			Portraits.ensurePlaced(s);
+			Portraits.ensureV2(s);
 			Jail.onServerStart(s);
 			Court.onServerStart();
 			taxTimer = 0;
@@ -92,6 +93,8 @@ public class PizdecMod implements ModInitializer {
 			Tax.onEntityLoad(entity);
 			SecretPolice.onEntityLoad(entity);
 			Border.onEntityLoad(entity);
+			BlackMarket.onEntityLoad(entity);
+			Ceremonies.onEntityLoad(entity);
 		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> onJoin(handler.player));
@@ -145,6 +148,10 @@ public class PizdecMod implements ModInitializer {
 		Border.tick(s);
 		Portraits.tick(s);
 		Propaganda.tick(s);
+		Politics.tick(s);
+		BlackMarket.tick(s);
+		Ceremonies.tick(s);
+		Archive.tick(s);
 		Gui.tickAll(s);
 
 		if (chaosTimer >= nextChaos) {
@@ -247,6 +254,10 @@ public class PizdecMod implements ModInitializer {
 			}
 			BlockState b = world.getBlockState(hit.getBlockPos());
 			PizdecState mst = PizdecState.get(p.getServer());
+			if (world.getRegistryKey() == World.OVERWORLD && Archive.special(mst, hit.getBlockPos())) {
+				if (hand == Hand.MAIN_HAND) Archive.onUse(p, hit.getBlockPos());
+				return ActionResult.SUCCESS;
+			}
 			if (mst.mfcBuilt && hit.getBlockPos().equals(Mfc.terminal(mst)) && world.getRegistryKey() == World.OVERWORLD) {
 				if (hand == Hand.MAIN_HAND) Mfc.takeTicket(p);
 				return ActionResult.SUCCESS;
@@ -360,6 +371,18 @@ public class PizdecMod implements ModInitializer {
 			}
 			if (tags.contains(Border.TOURIST_TAG) || tags.contains(Border.GUIDE_TAG)) {
 				Jail.arrest(p, "нападение на иностранного туриста (международный скандал)", 120);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(BlackMarket.TAG)) {
+				BlackMarket.onAttack(p.getServer());
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Ceremonies.PARADE_TAG)) {
+				Jail.arrest(p, "срыв военного парада", 120);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Archive.ARCHIVIST_TAG)) {
+				Jail.arrest(p, "нападение на хранителя государственной тайны", 120);
 				return ActionResult.FAIL;
 			}
 			if (tags.contains(Castle.KING_TAG)) {
@@ -483,7 +506,15 @@ public class PizdecMod implements ModInitializer {
 				}
 			}
 			if (Jail.jailed(sender)) return true; // в тюрьме можно ныть сколько угодно
-			return Laws.allowChat(sender, text);
+			if (!Laws.allowChat(sender, text)) return false;
+			String cens = Ceremonies.censor(text);
+			if (cens != null) {
+				MinecraftServer srv = sender.getServer();
+				srv.execute(() -> U.say(srv, U.t("<" + sender.getName().getString() + "> " + cens, Formatting.WHITE)
+						.append(U.t(" [исправлено Главлитом]", Formatting.DARK_GRAY))));
+				return false;
+			}
+			return true;
 		});
 	}
 
@@ -545,6 +576,15 @@ public class PizdecMod implements ModInitializer {
 				return ActionResult.SUCCESS;
 			}
 			if (tags.contains(Border.GUARD_TAG)) return ActionResult.SUCCESS;
+			if (tags.contains(BlackMarket.TAG)) {
+				if (hand == Hand.MAIN_HAND) BlackMarket.DealerGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Archive.ARCHIVIST_TAG)) {
+				if (hand == Hand.MAIN_HAND) Archive.ArchiveGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Ceremonies.PARADE_TAG)) return ActionResult.FAIL;
 			if (tags.contains(Castle.KING_TAG)) {
 				if (hand == Hand.MAIN_HAND) audience(p, entity.getBlockPos());
 				return ActionResult.SUCCESS;
@@ -955,6 +995,10 @@ public class PizdecMod implements ModInitializer {
 		}));
 
 		SecretPolice.commands(d);
+		Politics.commands(d);
+		BlackMarket.commands(d);
+		Ceremonies.commands(d);
+		Archive.commands(d);
 		d.register(CommandManager.literal("vyezd").executes(c -> {
 			Border.exit(c.getSource().getPlayerOrThrow());
 			return 1;
@@ -997,6 +1041,24 @@ public class PizdecMod implements ModInitializer {
 							SecretPolice.interrogate(EntityArgumentType.getPlayer(c, "player"), "указ админа");
 							return 1;
 						})))
+				.then(CommandManager.literal("parad").executes(c -> {
+					Ceremonies.startParade(c.getSource().getServer());
+					return 1;
+				}))
+				.then(CommandManager.literal("gimn").executes(c -> {
+					Ceremonies.anthem(c.getSource().getServer());
+					return 1;
+				}))
+				.then(CommandManager.literal("skandal").executes(c -> {
+					PizdecState st = PizdecState.get(c.getSource().getServer());
+					for (int i = 0; i < st.corruption.size(); i++) {
+						if (st.corruption.get(i).contains("|0|")) {
+							Politics.scandal(c.getSource().getServer(), i, "указ админа");
+							break;
+						}
+					}
+					return 1;
+				}))
 				.then(CommandManager.literal("slava").executes(c -> {
 					Propaganda.minuteOfGlory(c.getSource().getServer());
 					return 1;

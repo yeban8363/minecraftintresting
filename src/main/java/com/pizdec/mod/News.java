@@ -188,6 +188,18 @@ public final class News {
 		}
 		crime.append("\n§8Суд справедлив. Карета быстра.§0");
 		pages.add(crime.toString());
+		StringBuilder gov = new StringBuilder("§l ВЛАСТЬ НА МЕСТАХ§r\n\n");
+		for (int r = 0; r < 4; r++) {
+			Politics.Governor g = Politics.governor(st, r);
+			gov.append(Politics.REGIONS[r].replace(" губерния", "")).append(": ").append(g.name.split(" ")[0])
+					.append(" — ").append(U.pick("рост", "рекорд", "успех", "прорыв")).append("\n");
+		}
+		gov.append("\nДоверие королю: ").append(Politics.pct(Politics.officialKing(st))).append("\n§8██████ ████ ███████ ██ ████ [изъято Главлитом]§0");
+		pages.add(gov.toString());
+		List<String> sh = BlackMarket.shortageNames();
+		pages.add("§l ТОРГОВЛЯ§r\n\nДефицита нет! Временно повышенный спрос на: "
+				+ (sh.isEmpty() ? "ничего" : String.join(", ", sh.subList(0, Math.min(4, sh.size()))))
+				+ ".\n\nСпекулянтов просим сообщать: /stuknut.\n\n§8Парадов проведено: " + st.paradeNo + ". Ликование — плановое.§0");
 		String[] signs = {"Овен", "Телец", "Близнецы", "Рак", "Лев", "Дева", "Весы", "Скорпион", "Стрелец", "Козерог", "Водолей", "Рыбы"};
 		String[] fate = {"заплатите налог", "встретите карету", "найдёте алмаз (фальшивый)", "получите указ",
 				"проголосуете правильно", "съедите чипсы", "попадёте под FPV", "станете дворянином (нет)"};

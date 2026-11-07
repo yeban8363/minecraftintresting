@@ -156,6 +156,60 @@ public final class Portraits {
 		PizdecMod.LOG.info("Развешано портретов и плакатов: {}", placedCount);
 	}
 
+	public static final String PARADE = "poster_parade", EAR = "poster_ear";
+
+	/** 1.8: новые агитплакаты и флаги королевства у всех учреждений. */
+	public static void ensureV2(MinecraftServer s) {
+		PizdecState st = PizdecState.get(s);
+		if (st.postersV2 || !st.castleBuilt || !st.portraitsPlaced) return;
+		ServerWorld w = s.getOverworld();
+		B.w = w;
+		int ox = st.cx, oy = st.cy, oz = st.cz;
+		B.loadChunks(ox - 8, oz - 8, ox + Castle.SX + 8, oz + Castle.SZ + 46);
+		placedCount = 0;
+		hang(w, st, PARADE, ox + 13, oy, oz + 6, ox + 42, oz + 10, Direction.SOUTH); // торговые ряды со двора
+		hang(w, st, EAR, ox + 13, oy, oz + 6, ox + 42, oz + 10, Direction.SOUTH);
+		hang(w, st, PARADE, ox + 3, oy, oz + 7, ox + 13, oz + 13, Direction.SOUTH, Direction.NORTH); // лобби отеля
+		hang(w, st, PARADE, ox + 43, oy, oz + 19, ox + 53, oz + 29, Direction.SOUTH, Direction.EAST); // казарма
+		hang(w, st, EAR, ox + 11, oy, oz + 51, ox + 45, oz + 56, Direction.NORTH, Direction.SOUTH); // фойе парламента
+		hang(w, st, PARADE, ox + 49, oy, oz + 52, ox + 54, oz + 62, Direction.SOUTH); // ресторан
+		hang(w, st, EAR, ox + 6, oy, oz + 53, ox + 7, oz + 58, Direction.WEST, Direction.SOUTH); // приёмная ТП
+		hang(w, st, EAR, ox + 3, oy - 5, oz + 61, ox + 7, oz + 65, Direction.SOUTH, Direction.EAST); // архив
+		hang(w, st, KING, ox + 3, oy - 5, oz + 61, ox + 7, oz + 65, Direction.EAST, Direction.SOUTH);
+		if (st.mfcBuilt) {
+			B.loadChunks(st.mx - 6, st.mz - 6, st.mx + Mfc.W + 6, st.mz + Mfc.D + 6);
+			hang(w, st, EAR, st.mx + 1, st.my, st.mz + 1, st.mx + Mfc.W - 2, st.mz + Mfc.D - 2, Direction.SOUTH, Direction.WEST);
+			var e = Mfc.entrance(st);
+			flag(w, (int) Math.floor(e.x) + 3, (int) Math.floor(e.z) - 2);
+		}
+		if (st.courtBuilt) {
+			B.loadChunks(st.kx - 6, st.kz - 6, st.kx + Court.W + 10, st.kz + Court.D + 6);
+			hang(w, st, PARADE, st.kx + 1, st.ky + 1, st.kz + 1, st.kx + Court.W - 2, st.kz + Court.D - 2, Direction.WEST,
+					Direction.NORTH);
+			var g = Court.gate(st);
+			flag(w, (int) Math.floor(g.x), (int) Math.floor(g.z) - 3);
+		}
+		if (st.prisonBuilt) {
+			B.loadChunks(st.px + 50, st.pz, st.px + 64, st.pz + 26);
+			var g = Prison.gate(st);
+			flag(w, (int) Math.floor(g.x) + 1, (int) Math.floor(g.z) - 4);
+		}
+		st.postersV2 = true;
+		st.markDirty();
+		PizdecMod.LOG.info("Новых плакатов: {}", placedCount);
+	}
+
+	/** Флагшток с флагом королевства на уровне земли. */
+	private static void flag(ServerWorld w, int x, int z) {
+		int y = B.ground(x, z);
+		for (int i = 0; i < 8; i++) B.set(x, y + i, z, net.minecraft.block.Blocks.OAK_FENCE);
+		B.set(x, y + 8, z, net.minecraft.block.Blocks.GOLD_BLOCK);
+		for (int i = 1; i <= 3; i++) {
+			B.set(x + i, y + 7, z, net.minecraft.block.Blocks.RED_WOOL);
+			B.set(x + i, y + 6, z, i == 2 ? net.minecraft.block.Blocks.YELLOW_WOOL : net.minecraft.block.Blocks.RED_WOOL);
+		}
+	}
+
 	/** Для КПП (повёрнутых по-разному): ищет стену в квадрате ±8 вокруг. */
 	private static void hangNear(ServerWorld w, PizdecState st, String id, int cx, int y, int cz) {
 		for (Direction f : new Direction[] {Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST}) {

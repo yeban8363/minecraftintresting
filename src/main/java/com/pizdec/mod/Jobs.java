@@ -152,6 +152,7 @@ public final class Jobs {
 
 	/** Налоговая делится с помощниками. */
 	public static void onTaxCollected(MinecraftServer s, ServerPlayerEntity payer, int amount) {
+		Politics.onTax(s, payer, amount);
 		List<ServerPlayerEntity> helpers = new ArrayList<>();
 		for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) {
 			if (p != payer && is(p, "tax_helper")) helpers.add(p);

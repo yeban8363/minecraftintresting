@@ -44,6 +44,33 @@ public class PizdecState extends PersistentState {
 	public int[] borderY = new int[4];
 	/** Места портретов: "variant;x;y;z;facing". */
 	public final java.util.List<String> portraitSpots = new java.util.ArrayList<>();
+	public boolean postersV2;
+	// ---- 1.8: политика, архивы
+	public long treasury;
+	/** Настоящий (секретный) рейтинг короля и официальный рейтинг правительства. */
+	public double realRating = 41, govRating = 63;
+	public int scandals, paradeNo, govNo = 1;
+	/** Губернаторы: "имя|uuid игрока или пусто|украл|лояльность". Индексы — губернии. */
+	public final java.util.List<String> governors = new java.util.ArrayList<>();
+	/** Коррупция: "чиновник|должность|сумма|на что|раскрыто 0/1|дата". */
+	public final java.util.List<String> corruption = new java.util.ArrayList<>();
+	public final java.util.List<String> trials = new java.util.ArrayList<>();
+	public final java.util.List<String> lawLog = new java.util.ArrayList<>();
+
+	static void putList(NbtCompound nbt, String key, java.util.List<String> l) {
+		nbt.putString(key, String.join("\n", l));
+	}
+
+	static void getList(NbtCompound nbt, String key, java.util.List<String> l) {
+		for (String x : nbt.getString(key).split("\n")) if (!x.isBlank()) l.add(x);
+	}
+
+	/** Добавить строку в журнал с ограничением длины. */
+	public void log(java.util.List<String> l, String line, int max) {
+		l.add(line);
+		while (l.size() > max) l.remove(0);
+		markDirty();
+	}
 	public int electionNo;
 	public int electionTicks;
 	public int billNo;
@@ -196,6 +223,17 @@ public class PizdecState extends PersistentState {
 		readMap(nbt, "wantedList", (id, c) -> st.wanted.add(id));
 		readMap(nbt, "abroad", (id, c) -> st.abroad.put(id, c.getLong("until")));
 		readMap(nbt, "informants", (id, c) -> st.informants.add(id));
+		st.postersV2 = nbt.getBoolean("postersV2");
+		st.treasury = nbt.getLong("treasury");
+		if (nbt.contains("realRating")) st.realRating = nbt.getDouble("realRating");
+		if (nbt.contains("govRating")) st.govRating = nbt.getDouble("govRating");
+		st.scandals = nbt.getInt("scandals");
+		st.paradeNo = nbt.getInt("paradeNo");
+		if (nbt.contains("govNo")) st.govNo = nbt.getInt("govNo");
+		getList(nbt, "governors", st.governors);
+		getList(nbt, "corruption", st.corruption);
+		getList(nbt, "trials", st.trials);
+		getList(nbt, "lawLog", st.lawLog);
 		int[] by = nbt.getIntArray("borderY");
 		if (by.length == 4) st.borderY = by;
 		for (String sp : nbt.getString("portraitSpots").split("\n")) if (!sp.isBlank()) st.portraitSpots.add(sp);
@@ -378,6 +416,17 @@ public class PizdecState extends PersistentState {
 		informants.forEach(id -> inf.put(id.toString(), new NbtCompound()));
 		nbt.put("informants", inf);
 		nbt.putIntArray("borderY", borderY);
+		nbt.putBoolean("postersV2", postersV2);
+		nbt.putLong("treasury", treasury);
+		nbt.putDouble("realRating", realRating);
+		nbt.putDouble("govRating", govRating);
+		nbt.putInt("scandals", scandals);
+		nbt.putInt("paradeNo", paradeNo);
+		nbt.putInt("govNo", govNo);
+		putList(nbt, "governors", governors);
+		putList(nbt, "corruption", corruption);
+		putList(nbt, "trials", trials);
+		putList(nbt, "lawLog", lawLog);
 		nbt.putString("portraitSpots", String.join("\n", portraitSpots));
 		nbt.putInt("electionNo", electionNo);
 		nbt.putInt("electionTicks", electionTicks);

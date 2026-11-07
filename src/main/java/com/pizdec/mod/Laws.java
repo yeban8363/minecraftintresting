@@ -1474,6 +1474,28 @@ public final class Laws {
 					if (t % 20 != 0 || p.isSneaking()) return;
 					if (Portraits.nearPortrait(p, 3) && !Portraits.bowedRecently(p)) v(p, "не поклонился портрету короля");
 				});
+
+		// ===== версия 1.8: дефицит, церемонии, цензура, политика =====
+		law("deficit_crisis", "Повышенный спрос", "в магазине пропадает половина товаров (это не дефицит)");
+		law("glavlit_strict", "Строгий Главлит", "цензура вымарывает каждое третье слово в чате");
+		law("parade_now", "Внеочередной парад", "колонна уже марширует к статуе — все на площадь!")
+				.start(Ceremonies::startParade);
+		law("anthem_minute", "Гимн каждую минуту", "раз в минуту звучит гимн — стой смирно 8 секунд")
+				.world((s, t) -> { if (t % 1200 == 100) Ceremonies.anthem(s); });
+		law("governor_purge", "Чистка губернаторов", "король уволил всех губернаторов разом")
+				.start(s -> { for (int r = 0; r < 4; r++) Politics.fire(s, r, "чистка по указу"); });
+		law("anticorruption", "Месячник борьбы с коррупцией", "Счётная палата вскрывает тайные хищения прямо сейчас")
+				.start(s -> {
+					PizdecState st = PizdecState.get(s);
+					for (int i = 0, n = 0; i < st.corruption.size() && n < 2; i++) {
+						if (st.corruption.get(i).contains("|0|")) {
+							Politics.scandal(s, i, "месячник борьбы с коррупцией");
+							n++;
+						}
+					}
+				});
+		law("oath_mandatory", "Обязательная присяга", "кто не присягнул у статуи (/prisyaga) за 20 минут — нарушитель")
+				.tick((p, t) -> { if (t == Laws.GRACE + 20 * 30 && !Ceremonies.sworn(p)) v(p, "не принёс присягу королю"); });
 	}
 
 	// ------------------------------------------------------------------ события от главного класса
@@ -1606,7 +1628,7 @@ public final class Laws {
 
 		PizdecState st = PizdecState.get(s);
 		st.decrees++;
-		st.markDirty();
+		st.log(st.lawLog, "№" + st.decrees + " · " + Docs.today() + " · «" + l.title + "»" + (how == null ? "" : " (" + how + ")"), 40);
 
 		U.say(s, U.t("📜 Указ №" + st.decrees + " Его Величества " + Castle.KING_NAME + (how == null ? "" : " (" + how + ")") + ":",
 				Formatting.GOLD));

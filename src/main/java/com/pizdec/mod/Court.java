@@ -320,6 +320,7 @@ public final class Court {
 			double c = (double) tr.bribe / (tr.bribe + 300);
 			if (U.R.nextDouble() < c) {
 				say(p, "⚖ Судья Фемида Петровна: «За отсутствием состава преступления… и при наличии состава подарка — оправдан.»");
+				Archive.logTrial(p, rec.crime, "оправдан (взятка?)");
 				Jail.release(p, "оправдан судом (подозрительно быстро)");
 				return;
 			}
@@ -354,27 +355,32 @@ public final class Court {
 				say(p, "⚖ Приговор: ОПРАВДАН. «" + U.pick("Свободен. Пока что.", "Суд не нашёл ничего. Искал плохо.",
 						"Адвокат был убедителен. Глазки сработали.") + "»");
 				U.say(p.getServer(), U.t("⚖ Суд оправдал " + name + ". Король недоволен.", Formatting.GREEN));
+				Archive.logTrial(p, rec.crime, "оправдан");
 				Jail.release(p, "оправдан судом");
 			}
 			case 1 -> {
 				rec.ticks = Math.max(20 * 5, rec.ticks / 2);
 				say(p, "⚖ Приговор: срок СОКРАЩЁН вдвое — " + rec.ticks / 20 + " сек.");
+				Archive.logTrial(p, rec.crime, "виновен, " + rec.ticks / 20 + " сек (смягчено)");
 				Jail.toCellAfterTrial(p, rec);
 			}
 			case 2 -> {
 				say(p, "⚖ Приговор: ВИНОВЕН. " + rec.ticks / 20 + " сек, как просил прокурор.");
+				Archive.logTrial(p, rec.crime, "виновен, " + rec.ticks / 20 + " сек");
 				confiscation(p, rec);
 				Jail.toCellAfterTrial(p, rec);
 			}
 			case 3 -> {
 				rec.ticks *= 2;
 				say(p, "⚖ Приговор: ВИНОВЕН, и судье не понравилось твоё лицо. Срок УДВОЕН — " + rec.ticks / 20 + " сек.");
+				Archive.logTrial(p, rec.crime, "виновен, срок удвоен: " + rec.ticks / 20 + " сек");
 				confiscation(p, rec);
 				Jail.toCellAfterTrial(p, rec);
 			}
 			default -> {
 				confiscation(p, rec);
 				say(p, "⚖ Приговор: ССЫЛКА НА ВОЙНУ. «Родине нужны герои. И пушечное мясо.»");
+				Archive.logTrial(p, rec.crime, "ссылка на войну");
 				U.say(p.getServer(), U.t("⚔ " + name + " сослан судом на войну.", Formatting.DARK_RED));
 				Jail.releaseQuietly(p);
 				War.exile(p, "приговор суда: " + rec.crime);

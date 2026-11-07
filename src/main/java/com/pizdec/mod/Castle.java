@@ -30,7 +30,7 @@ import static com.pizdec.mod.B.*;
  */
 public final class Castle {
 	public static final int SX = 57, SZ = 45;
-	public static final int VERSION = 4;
+	public static final int VERSION = 5;
 	public static final int PARLIAMENT_SEATS = 210;
 
 	public static final String VERSION_TAG = "pizdec_v2";
@@ -53,7 +53,7 @@ public final class Castle {
 	public static final String[] NPC_TAGS = {KING_TAG, INSPECTOR_TAG, JESTER_TAG, SHOP_TAG, CASINO_TAG, UPGRADER_TAG, HR_TAG,
 			RECEPTION_TAG, CAPTAIN_TAG, TREASURER_TAG, SECRETARY_TAG, GATE_GUARD_TAG, "pizdec_guard", "pizdec_judge",
 			"pizdec_prosecutor", "pizdec_jury", Restaurant.CASHIER_TAG, Restaurant.CHEF_TAG, SecretPolice.MAJOR_TAG,
-			SecretPolice.INTERROGATOR_TAG};
+			SecretPolice.INTERROGATOR_TAG, Archive.ARCHIVIST_TAG};
 	public static final String KING_NAME = "Король Пиздец III";
 
 	private Castle() {}
@@ -61,7 +61,7 @@ public final class Castle {
 	// ------------------------------------------------------------------ где что
 
 	public static boolean inside(PizdecState st, BlockPos p) {
-		return st.castleBuilt && p.getX() >= st.cx - 5 && p.getX() <= st.cx + SX + 4 && p.getZ() >= st.cz - 5
+		return st.castleBuilt && p.getX() >= st.cx - 5 && p.getX() <= st.cx + SX + 4 && p.getZ() >= st.cz - 23
 				&& p.getZ() <= st.cz + SZ + 44 && p.getY() >= st.cy - 8 && p.getY() <= st.cy + 32;
 	}
 
@@ -173,17 +173,26 @@ public final class Castle {
 				initSeats(s);
 				U.say(s, U.t("🏛 К замку пристроен парламентский квартал. Выборы — раз в 30 минут!", Formatting.GOLD));
 			}
-			// версия 4: статуя короля, ресторан, тайная полиция
-			loadChunks(st.cx - 8, st.cz - 8, st.cx + SX + 8, st.cz + SZ + 46);
-			statue(st.cx, st.cy, st.cz);
-			Restaurant.build(st.cx, st.cy, st.cz);
-			SecretPolice.buildHq(st.cx, st.cy, st.cz);
-			Restaurant.spawnNpcs(world, st);
-			SecretPolice.spawnNpcs(world, st);
+			loadChunks(st.cx - 8, st.cz - 30, st.cx + SX + 8, st.cz + SZ + 46);
+			if (st.version < 4) {
+				// версия 4: статуя короля, ресторан, тайная полиция
+				statue(st.cx, st.cy, st.cz);
+				Restaurant.build(st.cx, st.cy, st.cz);
+				SecretPolice.buildHq(st.cx, st.cy, st.cz);
+				Restaurant.spawnNpcs(world, st);
+				SecretPolice.spawnNpcs(world, st);
+				U.say(s, U.t("🗿 Во дворе замка воздвигнута Огромная статуя Его Величества. В квартале открылись ресторан "
+						+ "«Вкусно и Точка» и «Управление по делам ничего особенного».", Formatting.GOLD));
+			}
+			// версия 5: Арка Вечной Благодарности, гербы, секретный архив
+			arch(st.cx, st.cy, st.cz);
+			emblems(st.cx, st.cy, st.cz);
+			Archive.build(st.cx, st.cy, st.cz);
+			Archive.spawnNpcs(world, st);
 			st.version = VERSION;
 			st.markDirty();
-			U.say(s, U.t("🗿 Во дворе замка воздвигнута Огромная статуя Его Величества. В квартале открылись ресторан "
-					+ "«Вкусно и Точка» и «Управление по делам ничего особенного».", Formatting.GOLD));
+			U.say(s, U.t("🏛 Перед замком воздвигнута Арка Вечной Благодарности, на стенах — гербы, под Управлением — "
+					+ "Государственный архив.", Formatting.GOLD));
 		}
 	}
 
@@ -291,6 +300,77 @@ public final class Castle {
 		tvsAndNewsstand(ox, oy, oz);
 		Restaurant.build(ox, oy, oz);
 		SecretPolice.buildHq(ox, oy, oz);
+		Archive.build(ox, oy, oz);
+		arch(ox, oy, oz);
+		emblems(ox, oy, oz);
+	}
+
+	// ------------------------------------------------------------------ монументальная архитектура
+
+	/** Арка Вечной Благодарности на подъезде к воротам: x 20..36, z −17..−14, высота 16. */
+	private static void arch(int ox, int oy, int oz) {
+		site(ox + 17, oz - 22, ox + 39, oz - 10, oy, 22, Blocks.GRASS_BLOCK, Blocks.STONE_BRICKS);
+		fill(ox + 26, oy - 1, oz - 26, ox + 30, oy - 1, oz - 6, Blocks.POLISHED_ANDESITE);
+		fill(ox + 19, oy - 1, oz - 19, ox + 37, oy - 1, oz - 12, Blocks.SMOOTH_STONE);
+		int z0 = oz - 17, z1 = oz - 14;
+		// пилоны и перекрытие
+		fill(ox + 20, oy, z0, ox + 36, oy + 14, z1, Blocks.QUARTZ_BRICKS);
+		fill(ox + 25, oy, z0, ox + 31, oy + 9, z1, Blocks.AIR);
+		fill(ox + 25, oy + 10, z0, ox + 31, oy + 10, z1, Blocks.CHISELED_QUARTZ_BLOCK);
+		for (int x : new int[] {20, 24, 32, 36}) {
+			fill(ox + x, oy, z0 - 1, ox + x, oy + 13, z0 - 1, Blocks.QUARTZ_PILLAR);
+			fill(ox + x, oy, z1 + 1, ox + x, oy + 13, z1 + 1, Blocks.QUARTZ_PILLAR);
+		}
+		// карниз и парапет
+		fill(ox + 19, oy + 15, z0 - 1, ox + 37, oy + 15, z1 + 1, Blocks.SMOOTH_QUARTZ_SLAB);
+		for (int x = 19; x <= 37; x += 2) set(ox + x, oy + 16, z0 - 1, Blocks.QUARTZ_BLOCK);
+		// корона на фасаде (с обеих сторон)
+		for (int zz : new int[] {z0 - 1, z1 + 1}) {
+			fill(ox + 26, oy + 11, zz, ox + 30, oy + 12, zz, Blocks.GOLD_BLOCK);
+			for (int x : new int[] {26, 28, 30}) set(ox + x, oy + 13, zz, Blocks.GOLD_BLOCK);
+			set(ox + 28, oy + 12, zz, Blocks.REDSTONE_BLOCK);
+			set(ox + 26, oy + 12, zz, Blocks.EMERALD_BLOCK);
+			set(ox + 30, oy + 12, zz, Blocks.DIAMOND_BLOCK);
+		}
+		// знамёна на пилонах (красно-жёлтые)
+		for (int zz : new int[] {z0 - 1, z1 + 1}) {
+			for (int x : new int[] {22, 34}) {
+				for (int y = oy + 2; y <= oy + 9; y++) set(ox + x, y, zz, y == oy + 5 ? Blocks.YELLOW_WOOL : Blocks.RED_WOOL);
+				set(ox + x, oy + 1, zz, Blocks.YELLOW_WOOL);
+			}
+		}
+		// скульптура наверху: золотая карета с конями (условно)
+		fill(ox + 26, oy + 16, z0 + 1, ox + 30, oy + 16, z1 - 1, Blocks.GOLD_BLOCK);
+		fill(ox + 27, oy + 17, z0 + 1, ox + 29, oy + 18, z1 - 1, Blocks.GOLD_BLOCK);
+		set(ox + 28, oy + 19, z0 + 2, Blocks.DIAMOND_BLOCK);
+		for (int x : new int[] {23, 33}) set(ox + x, oy + 16, z0 + 1, Blocks.LANTERN);
+		Restaurant.sign(ox + 22, oy + 10, z0 - 2, Direction.NORTH, "§lАРКА ВЕЧНОЙ", "§lБЛАГОДАРНОСТИ", "Народ — королю", "");
+		Restaurant.sign(ox + 34, oy + 10, z0 - 2, Direction.NORTH, "Воздвигнута", "на налоги", "благодарных", "граждан");
+		for (int x : new int[] {23, 33}) lampPost(ox + x, oy, oz - 21);
+	}
+
+	/** Государственная символика: гербы на внешней стене замка. */
+	private static void emblems(int ox, int oy, int oz) {
+		for (int cx : new int[] {11, 45}) {
+			// красный щит 7×7 с золотой короной, прямо в кладке северной стены
+			for (int dx = -3; dx <= 3; dx++) for (int dy = 0; dy <= 6; dy++) set(ox + cx + dx, oy + 2 + dy, oz, Blocks.RED_CONCRETE);
+			for (int dx = -3; dx <= 3; dx++) set(ox + cx + dx, oy + 2, oz, Blocks.GOLD_BLOCK);
+			for (int dx = -2; dx <= 2; dx++) {
+				set(ox + cx + dx, oy + 4, oz, Blocks.GOLD_BLOCK);
+				set(ox + cx + dx, oy + 5, oz, Blocks.GOLD_BLOCK);
+			}
+			for (int dx : new int[] {-2, 0, 2}) set(ox + cx + dx, oy + 6, oz, Blocks.GOLD_BLOCK);
+			set(ox + cx, oy + 7, oz, Blocks.GOLD_BLOCK);
+			set(ox + cx, oy + 5, oz, Blocks.REDSTONE_BLOCK);
+		}
+		// флаги королевства над воротами
+		for (int x : new int[] {23, 33}) {
+			for (int y = oy + 14; y <= oy + 20; y++) set(ox + x, y, oz - 1, Blocks.OAK_FENCE);
+			for (int i = 1; i <= 3; i++) {
+				set(ox + x + (x < 28 ? -i : i), oy + 20, oz - 1, Blocks.RED_WOOL);
+				set(ox + x + (x < 28 ? -i : i), oy + 19, oz - 1, i == 2 ? Blocks.YELLOW_WOOL : Blocks.RED_WOOL);
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------ Огромная статуя короля
@@ -887,6 +967,7 @@ public final class Castle {
 		spawnParliamentNpcs(world, st);
 		Restaurant.spawnNpcs(world, st);
 		SecretPolice.spawnNpcs(world, st);
+		Archive.spawnNpcs(world, st);
 		for (double gx : new double[] {25.5, 31.5}) {
 			IronGolemEntity g = EntityType.IRON_GOLEM.create(world);
 			if (g == null) continue;
