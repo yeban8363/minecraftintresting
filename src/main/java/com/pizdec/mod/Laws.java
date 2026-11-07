@@ -1385,6 +1385,40 @@ public final class Laws {
 				.start(s -> { for (ServerPlayerEntity p : U.players(s)) { Jobs.Job j = Jobs.jobOf(p); U.say(s, U.t("📋 " + p.getName().getString() + ": " + Ranks.name(p) + ", " + (j == null ? "безработный" : j.name()), Formatting.GRAY)); } });
 		law("sunset", "Вечный закат", "король любит закаты")
 				.start(s -> s.getOverworld().setTimeOfDay(12500));
+		// --- версия 1.5: документы, дроны, чипсы
+		law("docs_check", "Проверка документов", "у кого нет действующего паспорта при себе — в тюрьму")
+				.each(p -> {
+					Docs.Check c = Docs.check(p);
+					if (c == Docs.Check.OK) return;
+					if (c == Docs.Check.FOREIGN) Jail.arrest(p, "использование чужого паспорта", 60);
+					else if (c == Docs.Check.COPY) Jail.arrest(p, "подделка документов", 45);
+					else Jail.arrest(p, "отсутствие документов (" + Docs.checkText(c) + ")", 30);
+				});
+		law("passport_regime", "Паспортный режим", "патрули каждые 10 секунд проверяют случайного гражданина")
+				.world((s, t) -> {
+					if (t % 200 != 0 || t < GRACE) return;
+					List<ServerPlayerEntity> ps = U.free(s);
+					if (ps.isEmpty()) return;
+					ServerPlayerEntity p = U.pick(ps);
+					Docs.Check c = Docs.check(p);
+					U.msg(p, U.t("🛡 Патруль: «Документики!» — " + Docs.checkText(c), Formatting.YELLOW));
+					if (c != Docs.Check.OK) Jail.arrest(p, "отсутствие документов при патрульной проверке", 30);
+				});
+		law("drone_strike", "Дроновая атака", "к случайным гражданам летят FPV-дроны. С сюрпризом")
+				.world((s, t) -> {
+					if (t % 260 != 0) return;
+					List<ServerPlayerEntity> ps = U.free(s);
+					if (!ps.isEmpty()) Fpv.launch(U.pick(ps), 2);
+				});
+		law("drone_delivery", "Доставка дронами", "каждому гражданину — посылка с неба")
+				.each(p -> Fpv.launch(p, 0));
+		law("chips_day", "День чипсов", "каждому по пачке «Хрустика» со вкусом лобстера")
+				.each(p -> give(p, Fpv.chips(2)));
+		law("property_census", "Перепись недвижимости", "владельцы домов платят 20 за перепись, бездомные — штраф 10")
+				.each(p -> {
+					if (PizdecState.get(p.getServer()).properties.containsKey(p.getUuid())) Money.fine(p, 20, "перепись недвижимости");
+					else Money.fine(p, 10, "бездомность");
+				});
 		law("weather_chaos", "Погодный хаос", "погода меняется каждые 10 секунд")
 				.world((s, t) -> { if (t % 200 == 1) { int r = U.R.nextInt(3); s.getOverworld().setWeather(r == 0 ? 600 : 0, r == 0 ? 0 : 600, r != 0, r == 2); } });
 	}

@@ -139,6 +139,17 @@ public final class Chaos {
 
 		ev("за %s приехала карета, но перепутала адрес. Штраф за ложный вызов −10", p -> Money.fine(p, 10, "ложный вызов кареты"));
 
+		ev("к %s прилетел FPV-дрон", p -> Fpv.launch(p, -1));
+
+		ev("патруль проверил документы у %s", p -> {
+			Docs.Check c = Docs.check(p);
+			U.msg(p, U.t("🛡 Патруль: «Ваши документы?» — " + Docs.checkText(c), Formatting.YELLOW));
+			if (c != Docs.Check.OK) Jail.arrest(p, "отсутствие документов при проверке", 25);
+			else Money.give(p, 5, "образцовый гражданин");
+		});
+
+		ev("%s нашёл на дороге пачку чипсов", p -> p.getInventory().offerOrDrop(Fpv.chips(1)));
+
 		ev("%s сбила королевская карета на полном ходу", p -> {
 			p.damage(p.getDamageSources().generic(), 3f);
 			p.addVelocity(U.R.nextDouble() * 2 - 1, 0.9, U.R.nextDouble() * 2 - 1);

@@ -1,0 +1,9 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "minecraft:item/cookie"
+	},
+	"overrides": [
+		{ "predicate": { "custom_model_data": 7701 }, "model": "pizdec:item/chips_lobster" }
+	]
+}

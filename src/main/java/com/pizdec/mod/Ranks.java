@@ -154,6 +154,7 @@ public final class Ranks {
 				if (slots[r - 1] != slot) continue;
 				int cur = Ranks.get(player);
 				if (cur >= r || PRICE[r] == 0 || cur != r - 1) return;
+				if (r >= 3 && !Docs.require(player, "присвоения звания «" + NAMES[r] + "»")) return;
 				if (Money.pay(player, PRICE[r], "звание «" + NAMES[r] + "»")) {
 					Ranks.set(player, r);
 					U.say(player.getServer(), U.t("👑 " + player.getName().getString() + " купил звание «" + NAMES[r]

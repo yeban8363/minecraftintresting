@@ -69,6 +69,7 @@ public class PizdecMod implements ModInitializer {
 			Castle.ensureBuilt(s);
 			Prison.ensureBuilt(s);
 			Court.ensureBuilt(s);
+			Mfc.ensureBuilt(s);
 			Jail.onServerStart(s);
 			Court.onServerStart();
 			taxTimer = 0;
@@ -85,6 +86,7 @@ public class PizdecMod implements ModInitializer {
 			}
 			Jail.onEntityLoad(entity);
 			Court.onEntityLoad(entity);
+			Fpv.onEntityLoad(entity);
 			Tax.onEntityLoad(entity);
 		});
 
@@ -123,6 +125,9 @@ public class PizdecMod implements ModInitializer {
 		Laws.tick(s);
 		Jail.tick(s);
 		Hotel.tick(s);
+		Docs.tick(s);
+		Mfc.tick(s);
+		Fpv.tick(s);
 		Court.tick(s);
 		War.tick(s);
 		Tax.tick(s);
@@ -188,7 +193,7 @@ public class PizdecMod implements ModInitializer {
 
 	private static boolean royalArea(World world, BlockPos pos, PizdecState st) {
 		return world.getRegistryKey() == World.OVERWORLD
-				&& (Castle.inside(st, pos) || Prison.inside(st, pos) || Court.inside(st, pos));
+				&& (Castle.inside(st, pos) || Prison.inside(st, pos) || Court.inside(st, pos) || Mfc.inside(st, pos));
 	}
 
 	private static void registerPaidStuff() {
@@ -220,6 +225,23 @@ public class PizdecMod implements ModInitializer {
 				return ActionResult.FAIL;
 			}
 			BlockState b = world.getBlockState(hit.getBlockPos());
+			PizdecState mst = PizdecState.get(p.getServer());
+			if (mst.mfcBuilt && hit.getBlockPos().equals(Mfc.terminal(mst)) && world.getRegistryKey() == World.OVERWORLD) {
+				if (hand == Hand.MAIN_HAND) Mfc.takeTicket(p);
+				return ActionResult.SUCCESS;
+			}
+			boolean container = b.isOf(Blocks.CHEST) || b.isOf(Blocks.TRAPPED_CHEST) || b.isOf(Blocks.BARREL)
+					|| b.isIn(BlockTags.SHULKER_BOXES) || b.isOf(Blocks.FURNACE) || b.isOf(Blocks.BLAST_FURNACE) || b.isOf(Blocks.SMOKER)
+					|| b.isOf(Blocks.HOPPER) || b.isOf(Blocks.DISPENSER) || b.isOf(Blocks.DROPPER) || b.isOf(Blocks.BREWING_STAND);
+			boolean placing = p.getStackInHand(hand).getItem() instanceof net.minecraft.item.BlockItem;
+			if (container || placing) {
+				net.minecraft.util.math.BlockPos target = placing && !container ? hit.getBlockPos().offset(hit.getSide()) : hit.getBlockPos();
+				String deny = Docs.denyReason(p, target);
+				if (deny != null) {
+					if (hand == Hand.MAIN_HAND) U.bar(p, U.t("🏛 Нельзя: " + deny, Formatting.RED));
+					return ActionResult.FAIL;
+				}
+			}
 			if (!p.isCreative() && !Laws.allowUse(p, b, p.getStackInHand(hand))) return ActionResult.FAIL;
 			if (hand == Hand.MAIN_HAND && p.getMainHandStack().getItem() instanceof net.minecraft.item.BlockItem) Jobs.onPlace(p);
 			if (hand != Hand.MAIN_HAND) return ActionResult.PASS;
@@ -277,6 +299,12 @@ public class PizdecMod implements ModInitializer {
 				Jail.arrest(p, "порча королевского имущества", 90);
 				return false;
 			}
+			String deny = Docs.denyReason(p, pos);
+			if (deny != null) {
+				U.bar(p, U.t("🏛 Нельзя: " + deny, Formatting.RED));
+				if (deny.startsWith("частная")) Jail.arrest(p, "порча чужой собственности", 45);
+				return false;
+			}
 			return Laws.allowBreak(p);
 		});
 
@@ -301,6 +329,13 @@ public class PizdecMod implements ModInitializer {
 				Jail.arrest(p, "давление на присяжных", 90);
 				return ActionResult.FAIL;
 			}
+			for (String mt : Mfc.TAGS) {
+				if (tags.contains(mt)) {
+					Jail.arrest(p, "нападение на госслужащего МФЦ", 90);
+					return ActionResult.FAIL;
+				}
+			}
+			if (tags.contains(Fpv.TAG)) return ActionResult.FAIL;
 			if (tags.contains(Castle.GATE_GUARD_TAG) || tags.contains(Castle.CAPTAIN_TAG)) {
 				Jail.arrest(p, "нападение на стражу", 120);
 				return ActionResult.FAIL;
@@ -383,6 +418,7 @@ public class PizdecMod implements ModInitializer {
 	private static void registerChat() {
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
 			String text = message.getSignedContent();
+			if (Docs.onChat(sender, text)) return false; // ответ на анкету паспортиста
 			String low = text.toLowerCase();
 			if (low.contains("корол") || low.contains("king")) {
 				for (String bad : INSULTS) {
@@ -448,6 +484,12 @@ public class PizdecMod implements ModInitializer {
 			if (tags.contains(Castle.HR_TAG)) {
 				if (hand == Hand.MAIN_HAND) Jobs.JobsGui.open(p);
 				return ActionResult.SUCCESS;
+			}
+			for (int k = 0; k < Mfc.TAGS.length; k++) {
+				if (tags.contains(Mfc.TAGS[k])) {
+					if (hand == Hand.MAIN_HAND) Mfc.clerk(p, k);
+					return ActionResult.SUCCESS;
+				}
 			}
 			if (tags.contains(Castle.RECEPTION_TAG)) {
 				if (hand == Hand.MAIN_HAND) Hotel.ReceptionGui.open(p);
@@ -677,6 +719,30 @@ public class PizdecMod implements ModInitializer {
 				})));
 		d.register(CommandManager.literal("ukaz").executes(c -> {
 			Jobs.ukaz(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+
+		Docs.commands(d);
+		d.register(CommandManager.literal("fpv").executes(c -> {
+			Fpv.call(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+		d.register(CommandManager.literal("talon").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			if (!st.mfcBuilt || p.squaredDistanceTo(Mfc.entrance(st)) > 30 * 30) {
+				U.msg(p, U.t("🎫 Талон берут в самом МФЦ. /mfc — где он.", Formatting.GRAY));
+				return 0;
+			}
+			Mfc.takeTicket(p);
+			return 1;
+		}));
+		d.register(CommandManager.literal("mfc").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			PizdecState st = PizdecState.get(p.getServer());
+			U.msg(p, U.t("🏢 Королевский МФЦ «Мои документы»: " + (st.mfcBuilt ? U.coords(st.mx + 10, st.my, st.mz + 15) : "строится")
+					+ " (к северо-востоку от ворот замка). Талон — терминал у входа. Окна: №1 паспорта, №2 прописка, "
+					+ "№3 дома (Росреестр), №4 нотариус. Фотобудка — слева от входа.", Formatting.AQUA));
 			return 1;
 		}));
 

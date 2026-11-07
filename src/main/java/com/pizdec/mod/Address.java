@@ -88,6 +88,12 @@ public final class Address {
 			U.msg(p, U.t("🏠 Прописаться в королевских зданиях? Наглость. Но смешно. Нет.", Formatting.RED));
 			return;
 		}
+		Docs.Owned owned = Docs.propertyAt(p.getServer(), found);
+		if (owned != null && !owned.owner().equals(p.getUuid()) && !owned.prop().residents.contains(p.getUuid())) {
+			U.msg(p, U.t("🏠 Это чужая собственность (кад. №" + owned.prop().cadastral + "). Прописаться можно только с согласия "
+					+ "владельца: пусть впишет вас жильцом (/dom zhilec).", Formatting.RED));
+			return;
+		}
 		String name = signText(w, found);
 		if (name.isBlank()) name = "Дом " + p.getName().getString();
 		boolean had = st.addresses.containsKey(p.getUuid());

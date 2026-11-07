@@ -313,6 +313,7 @@ public final class Jobs {
 			U.msg(p, U.t("💼 Отдел кадров: «Из тюрьмы и с войны на работу не берём».", Formatting.RED));
 			return;
 		}
+		if (!Docs.require(p, "трудоустройства")) return;
 		if (!Ranks.atLeast(p, j.minRank)) {
 			U.msg(p, U.t("💼 Отдел кадров: «" + j.name + "? Нужно звание не ниже «" + Ranks.name(j.minRank)
 					+ "». Иди купи.»", Formatting.RED));

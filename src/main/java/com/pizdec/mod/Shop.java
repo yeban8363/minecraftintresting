@@ -33,6 +33,7 @@ public final class Shop extends Gui {
 		add(Items.COOKED_BEEF, 4, 25);
 		add(Items.GOLDEN_CARROT, 4, 50);
 		add(Items.CAKE, 1, 25);
+		add(() -> Fpv.chips(3), 15);
 		add(Items.GOLDEN_APPLE, 1, 90);
 		add(Items.ENCHANTED_GOLDEN_APPLE, 1, 2500);
 		// блоки

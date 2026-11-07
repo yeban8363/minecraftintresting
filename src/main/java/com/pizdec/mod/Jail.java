@@ -38,6 +38,8 @@ public final class Jail {
 		public boolean needsTrial;
 		/** Сейчас идёт суд. */
 		public boolean trial;
+		/** Тяжесть: базовый срок в секундах (для конфискации имущества). */
+		public int severity;
 
 		public Record(int ticks, String crime, int cell) {
 			this.ticks = ticks;
@@ -173,6 +175,8 @@ public final class Jail {
 
 		r = new Record(ticks, crime, U.R.nextInt(Prison.CELLS));
 		r.needsTrial = !force && st.courtBuilt && ticks > 20 * 10 && !Laws.is("no_court");
+		r.severity = seconds;
+		Docs.addCrime(s, p.getUuid(), crime);
 		st.jail.put(p.getUuid(), r);
 		st.arrests++;
 		st.markDirty();

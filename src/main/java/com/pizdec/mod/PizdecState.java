@@ -21,6 +21,10 @@ public class PizdecState extends PersistentState {
 	public boolean warBuilt;
 	public int wx, wy, wz;
 	public int version;
+	public boolean mfcBuilt;
+	public int mx, my, mz;
+	public int passportSeq;
+	public int cadastralSeq;
 	public int decrees;
 	public int taxRaids;
 	public int arrests;
@@ -58,6 +62,52 @@ public class PizdecState extends PersistentState {
 	}
 
 	public final Map<Integer, Rental> hotel = new HashMap<>();
+
+	/** Паспорт гражданина. */
+	public static final class Passport {
+		public String series = "";
+		public int number;
+		public String fio = "";
+		public String gender = "";
+		public String birth = "";
+		public String issued = "";
+		public String regName = "";
+		public int regX, regY, regZ;
+		public String regDate = "";
+		public int version;
+	}
+
+	/** Объект недвижимости (жилой дом с участком). */
+	public static final class Property {
+		public String cadastral = "";
+		public int x0, y0, z0, x1, y1, z1;
+		public String addr = "";
+		public String regDate = "";
+		/** 0 — в порядке, 1 — арест (долги). */
+		public int status;
+		public String reason = "";
+		public int value;
+		public int version;
+		public int decree;
+		public final java.util.List<UUID> residents = new java.util.ArrayList<>();
+
+		public boolean contains(int x, int y, int z) {
+			return x >= x0 && x <= x1 && y >= y0 && y <= y1 && z >= z0 && z <= z1;
+		}
+
+		public int area() {
+			return (x1 - x0 + 1) * (z1 - z0 + 1);
+		}
+	}
+
+	public final Map<UUID, Passport> passports = new HashMap<>();
+	public final Map<UUID, Property> properties = new HashMap<>();
+	/** Конфискованное в пользу Короны (выставлено на торги). */
+	public final java.util.List<Property> crown = new java.util.ArrayList<>();
+	/** Кому раньше принадлежал конфискованный объект: кадастровый № → UUID. */
+	public final Map<String, UUID> formerOwners = new HashMap<>();
+	/** Судимости: последние 10 приговоров. */
+	public final Map<UUID, java.util.List<String>> crimes = new HashMap<>();
 
 	private static final Type<PizdecState> TYPE = new Type<>(PizdecState::new, PizdecState::fromNbt, null);
 
@@ -100,10 +150,54 @@ public class PizdecState extends PersistentState {
 		st.wy = nbt.getInt("wy");
 		st.wz = nbt.getInt("wz");
 		st.version = nbt.getInt("version");
+		st.mfcBuilt = nbt.getBoolean("mfcBuilt");
+		st.mx = nbt.getInt("mx");
+		st.my = nbt.getInt("my");
+		st.mz = nbt.getInt("mz");
+		st.passportSeq = nbt.getInt("passportSeq");
+		st.cadastralSeq = nbt.getInt("cadastralSeq");
 		st.decrees = nbt.getInt("decrees");
 		st.taxRaids = nbt.getInt("taxRaids");
 		st.arrests = nbt.getInt("arrests");
-		readMap(nbt, "jail", (id, c) -> st.jail.put(id, new Jail.Record(c.getInt("t"), c.getString("crime"), c.getInt("cell"))));
+		readMap(nbt, "jail", (id, c) -> {
+			Jail.Record r = new Jail.Record(c.getInt("t"), c.getString("crime"), c.getInt("cell"));
+			r.severity = c.getInt("sev");
+			st.jail.put(id, r);
+		});
+		readMap(nbt, "passports", (id, c) -> {
+			Passport p = new Passport();
+			p.series = c.getString("series");
+			p.number = c.getInt("number");
+			p.fio = c.getString("fio");
+			p.gender = c.getString("gender");
+			p.birth = c.getString("birth");
+			p.issued = c.getString("issued");
+			p.regName = c.getString("regName");
+			p.regX = c.getInt("regX");
+			p.regY = c.getInt("regY");
+			p.regZ = c.getInt("regZ");
+			p.regDate = c.getString("regDate");
+			p.version = c.getInt("ver");
+			st.passports.put(id, p);
+		});
+		readMap(nbt, "properties", (id, c) -> st.properties.put(id, readProperty(c)));
+		NbtCompound cr = nbt.getCompound("crownList");
+		for (String k : cr.getKeys()) {
+			NbtCompound c = cr.getCompound(k);
+			st.crown.add(readProperty(c));
+			if (c.contains("former")) {
+				try {
+					st.formerOwners.put(c.getString("cadastral"), UUID.fromString(c.getString("former")));
+				} catch (IllegalArgumentException ignored) {
+					// нет так нет
+				}
+			}
+		}
+		readMap(nbt, "crimes", (id, c) -> {
+			java.util.List<String> l = new java.util.ArrayList<>();
+			for (String line : c.getString("list").split("\n")) if (!line.isBlank()) l.add(line);
+			st.crimes.put(id, l);
+		});
 		readMap(nbt, "exiles", (id, c) -> st.exiles.put(id, c.getInt("t")));
 		readMap(nbt, "ranks", (id, c) -> st.ranks.put(id, c.getInt("r")));
 		readMap(nbt, "jobs", (id, c) -> {
@@ -123,6 +217,54 @@ public class PizdecState extends PersistentState {
 			}
 		}
 		return st;
+	}
+
+	private static Property readProperty(NbtCompound c) {
+		Property p = new Property();
+		p.cadastral = c.getString("cadastral");
+		p.x0 = c.getInt("x0");
+		p.y0 = c.getInt("y0");
+		p.z0 = c.getInt("z0");
+		p.x1 = c.getInt("x1");
+		p.y1 = c.getInt("y1");
+		p.z1 = c.getInt("z1");
+		p.addr = c.getString("addr");
+		p.regDate = c.getString("regDate");
+		p.status = c.getInt("status");
+		p.reason = c.getString("reason");
+		p.value = c.getInt("value");
+		p.version = c.getInt("ver");
+		p.decree = c.getInt("decree");
+		for (String r : c.getString("residents").split(",")) {
+			try {
+				if (!r.isBlank()) p.residents.add(UUID.fromString(r));
+			} catch (IllegalArgumentException ignored) {
+				// пропуск
+			}
+		}
+		return p;
+	}
+
+	private static NbtCompound writeProperty(Property p) {
+		NbtCompound c = new NbtCompound();
+		c.putString("cadastral", p.cadastral);
+		c.putInt("x0", p.x0);
+		c.putInt("y0", p.y0);
+		c.putInt("z0", p.z0);
+		c.putInt("x1", p.x1);
+		c.putInt("y1", p.y1);
+		c.putInt("z1", p.z1);
+		c.putString("addr", p.addr);
+		c.putString("regDate", p.regDate);
+		c.putInt("status", p.status);
+		c.putString("reason", p.reason);
+		c.putInt("value", p.value);
+		c.putInt("ver", p.version);
+		c.putInt("decree", p.decree);
+		StringBuilder sb = new StringBuilder();
+		for (UUID u : p.residents) sb.append(sb.length() > 0 ? "," : "").append(u);
+		c.putString("residents", sb.toString());
+		return c;
 	}
 
 	@Override
@@ -145,6 +287,12 @@ public class PizdecState extends PersistentState {
 		nbt.putInt("wy", wy);
 		nbt.putInt("wz", wz);
 		nbt.putInt("version", version);
+		nbt.putBoolean("mfcBuilt", mfcBuilt);
+		nbt.putInt("mx", mx);
+		nbt.putInt("my", my);
+		nbt.putInt("mz", mz);
+		nbt.putInt("passportSeq", passportSeq);
+		nbt.putInt("cadastralSeq", cadastralSeq);
 		nbt.putInt("decrees", decrees);
 		nbt.putInt("taxRaids", taxRaids);
 		nbt.putInt("arrests", arrests);
@@ -155,6 +303,7 @@ public class PizdecState extends PersistentState {
 			c.putInt("t", r.ticks);
 			c.putString("crime", r.crime);
 			c.putInt("cell", r.cell);
+			c.putInt("sev", r.severity);
 			j.put(id.toString(), c);
 		});
 		nbt.put("jail", j);
@@ -211,6 +360,46 @@ public class PizdecState extends PersistentState {
 			h.put(String.valueOf(room), c);
 		});
 		nbt.put("hotel", h);
+
+		NbtCompound ps = new NbtCompound();
+		passports.forEach((id, p) -> {
+			NbtCompound c = new NbtCompound();
+			c.putString("series", p.series);
+			c.putInt("number", p.number);
+			c.putString("fio", p.fio);
+			c.putString("gender", p.gender);
+			c.putString("birth", p.birth);
+			c.putString("issued", p.issued);
+			c.putString("regName", p.regName);
+			c.putInt("regX", p.regX);
+			c.putInt("regY", p.regY);
+			c.putInt("regZ", p.regZ);
+			c.putString("regDate", p.regDate);
+			c.putInt("ver", p.version);
+			ps.put(id.toString(), c);
+		});
+		nbt.put("passports", ps);
+
+		NbtCompound pr = new NbtCompound();
+		properties.forEach((id, p) -> pr.put(id.toString(), writeProperty(p)));
+		nbt.put("properties", pr);
+
+		NbtCompound cr = new NbtCompound();
+		for (int i = 0; i < crown.size(); i++) {
+			NbtCompound c = writeProperty(crown.get(i));
+			UUID former = formerOwners.get(crown.get(i).cadastral);
+			if (former != null) c.putString("former", former.toString());
+			cr.put(String.valueOf(i), c);
+		}
+		nbt.put("crownList", cr);
+
+		NbtCompound cm = new NbtCompound();
+		crimes.forEach((id, l) -> {
+			NbtCompound c = new NbtCompound();
+			c.putString("list", String.join("\n", l));
+			cm.put(id.toString(), c);
+		});
+		nbt.put("crimes", cm);
 		return nbt;
 	}
 }

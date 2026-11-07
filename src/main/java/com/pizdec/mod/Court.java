@@ -363,20 +363,36 @@ public final class Court {
 			}
 			case 2 -> {
 				say(p, "⚖ Приговор: ВИНОВЕН. " + rec.ticks / 20 + " сек, как просил прокурор.");
+				confiscation(p, rec);
 				Jail.toCellAfterTrial(p, rec);
 			}
 			case 3 -> {
 				rec.ticks *= 2;
 				say(p, "⚖ Приговор: ВИНОВЕН, и судье не понравилось твоё лицо. Срок УДВОЕН — " + rec.ticks / 20 + " сек.");
+				confiscation(p, rec);
 				Jail.toCellAfterTrial(p, rec);
 			}
 			default -> {
+				confiscation(p, rec);
 				say(p, "⚖ Приговор: ССЫЛКА НА ВОЙНУ. «Родине нужны герои. И пушечное мясо.»");
 				U.say(p.getServer(), U.t("⚔ " + name + " сослан судом на войну.", Formatting.DARK_RED));
 				Jail.releaseQuietly(p);
 				War.exile(p, "приговор суда: " + rec.crime);
 			}
 		}
+	}
+
+	/** За тяжкие преступления суд может конфисковать дом. */
+	private static void confiscation(ServerPlayerEntity p, Jail.Record rec) {
+		if (rec.severity < 90 || !PizdecState.get(p.getServer()).properties.containsKey(p.getUuid())) return;
+		double chance = rec.severity >= 150 ? 0.7 : rec.severity >= 120 ? 0.5 : 0.3;
+		if (Laws.is("harsh_court")) chance += 0.2;
+		if (U.R.nextDouble() >= chance) {
+			say(p, "⚖ Судья: «Имущество на этот раз не трогаем. Но я запомнила адрес.»");
+			return;
+		}
+		say(p, "⚖ Суд также постановил: КОНФИСКОВАТЬ дом осуждённого в пользу Короны.");
+		Docs.confiscate(p.getServer(), p.getUuid(), "приговор суда: " + rec.crime);
 	}
 
 	/** Адвокатов после перезапуска быть не должно. */

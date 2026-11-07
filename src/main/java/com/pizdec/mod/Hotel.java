@@ -146,6 +146,7 @@ public final class Hotel {
 			U.msg(p, U.t("🏨 Из тюрьмы и с фронта бронирование не принимаем.", Formatting.RED));
 			return;
 		}
+		if (!Docs.require(p, "заселения в отель")) return;
 		int cost = price(r.kind);
 		if (cost > 0 && !Money.pay(p, cost, "номер " + r.no + " (" + r.kind.title + ")")) return;
 		long base = cur != null && cur.who.equals(p.getUuid()) && cur.until > now ? cur.until : now;

@@ -298,10 +298,21 @@ public final class Tax {
 	 * canArrest — арестовать, если взять вообще нечего.
 	 */
 	private static void collect(ServerPlayerEntity p, BlockPos home, double mult, boolean canArrest) {
+		collectInner(p, home, mult, canArrest);
+		if (Money.get(p) < -300) Docs.lien(p, "налоговая задолженность " + (-Money.get(p)) + " бабла");
+	}
+
+	private static void collectInner(ServerPlayerEntity p, BlockPos home, double mult, boolean canArrest) {
 		String why = U.pick(REASONS);
 		int bal = Money.get(p);
 		int tax = (int) Math.max(10, Math.round(Math.max(bal, 0) * 0.2 * mult) + 10 * mult);
 		tax = (int) Math.max(5, tax * (1 - Ranks.taxDiscount(p)));
+		PizdecState.Property prop = PizdecState.get(p.getServer()).properties.get(p.getUuid());
+		if (prop != null) {
+			int ptax = Math.max(5, prop.area() / 20);
+			tax += ptax;
+			why = why + " + налог на недвижимость (" + ptax + ")";
+		}
 		U.msg(p, U.t("🧾 Налоговая: «" + why + "» — " + tax + " бабла" + (Ranks.taxDiscount(p) > 0
 				? " (скидка за звание «" + Ranks.name(p) + "»)" : "") + ".", Formatting.GOLD));
 
