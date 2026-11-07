@@ -38,7 +38,15 @@ public final class Jobs {
 	private static final Map<UUID, Integer> progress = new HashMap<>();
 	private static final Map<UUID, Integer> fishSeen = new HashMap<>();
 	private static final Map<UUID, Vec3d> walkPos = new HashMap<>();
+	/** «Пассивные» начисления за смену: доля налогов, аресты, доносы, гости отеля. */
 	private static final Map<UUID, Integer> taxShare = new HashMap<>();
+	private static final Map<UUID, Integer> cookSeen = new HashMap<>();
+	private static final Map<UUID, Integer> donosCount = new HashMap<>();
+	private static final Map<UUID, Integer> lastDonos = new HashMap<>();
+	private static final java.util.Set<UUID> ukazUsed = new java.util.HashSet<>();
+	private static final net.minecraft.item.Item[] FOODS = {Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_CHICKEN,
+			Items.COOKED_MUTTON, Items.COOKED_RABBIT, Items.COOKED_COD, Items.COOKED_SALMON, Items.BAKED_POTATO, Items.BREAD,
+			Items.PUMPKIN_PIE, Items.CAKE, Items.COOKIE, Items.MUSHROOM_STEW, Items.RABBIT_STEW, Items.BEETROOT_SOUP};
 	private static int shiftTimer;
 
 	private static void job(String id, String name, Item icon, String task, int quota, int salary, int minRank) {
@@ -64,6 +72,19 @@ public final class Jobs {
 				p -> !Jail.jailed(p), "не сидеть в тюрьме");
 		job("banker", "Банкир", Items.GOLD_BLOCK, "ничего, получаешь 3% от своего баланса (до 300)", 0, 0, 5,
 				p -> Money.get(p) >= 1000, "1000+ бабла на счету");
+		// версия 1.4
+		job("jester", "Королевский шут", Items.CARVED_PUMPKIN, "напрыгать прыжков", 25, 35, 0);
+		job("cook", "Повар королевской кухни", Items.SMOKER, "приготовить еды (печь/крафт)", 8, 50, 1);
+		job("builder", "Строитель", Items.BRICKS, "поставить блоков", 40, 55, 2);
+		job("portier", "Портье отеля", Items.BELL, "простоять в лобби отеля секунд (+10 за каждого гостя)", 60, 45, 2);
+		job("treasurer", "Казначей", Items.GOLD_INGOT, "простоять в казначействе секунд", 60, 90, 3);
+		job("warden", "Тюремный надзиратель", Items.IRON_BARS, "простоять на посту в тюрьме секунд (+5 за зэка)", 60, 70, 4,
+				p -> !Jail.busy(p), "не сидеть самому");
+		job("bailiff", "Судебный пристав", Items.CHAIN, "ничего, +10 за каждый арест в королевстве", 0, 0, 4);
+		job("spy", "Шпион короля", Items.SPYGLASS, "доносить: /donos <игрок>, +25 за донос (до 3 за смену)", 0, 0, 4);
+		job("assistant", "Помощник короля", Items.GOLDEN_HELMET,
+				"простоять в тронном зале секунд; раз в смену /ukaz — новый указ", 60, 250, 5,
+				p -> Money.get(p) >= 3000 && !Jail.busy(p), "3000+ бабла и чистая репутация");
 	}
 
 	private Jobs() {}
@@ -126,6 +147,67 @@ public final class Jobs {
 		for (ServerPlayerEntity h : helpers) taxShare.merge(h.getUuid(), each, Integer::sum);
 	}
 
+	public static void onPlace(ServerPlayerEntity p) {
+		if (is(p, "builder")) add(p, 1);
+	}
+
+	public static void onArrest(MinecraftServer s, ServerPlayerEntity arrested) {
+		for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) {
+			if (p != arrested && is(p, "bailiff")) taxShare.merge(p.getUuid(), 10, Integer::sum);
+		}
+	}
+
+	public static void onHotelGuest(MinecraftServer s) {
+		for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) {
+			if (is(p, "portier")) taxShare.merge(p.getUuid(), 10, Integer::sum);
+		}
+	}
+
+	public static void onJump(ServerPlayerEntity p) {
+		if (is(p, "jester")) add(p, 1);
+	}
+
+	/** Донос шпиона. */
+	public static void donos(ServerPlayerEntity p, ServerPlayerEntity target) {
+		if (!is(p, "spy")) {
+			U.msg(p, U.t("🕵 Доносы принимаются только от штатных шпионов короля. Устройся: /rabota", Formatting.RED));
+			return;
+		}
+		if (target == p) {
+			U.msg(p, U.t("🕵 Донос на самого себя? Похвально, но нет.", Formatting.GRAY));
+			return;
+		}
+		int now = p.getServer().getTicks();
+		Integer last = lastDonos.get(p.getUuid());
+		if (last != null && now - last < 20 * 60) {
+			U.msg(p, U.t("🕵 Следующий донос через " + (20 * 60 - (now - last)) / 20 + " сек. Не части.", Formatting.GRAY));
+			return;
+		}
+		if (Jail.busy(target)) {
+			U.msg(p, U.t("🕵 Этот и так сидит или воюет.", Formatting.GRAY));
+			return;
+		}
+		lastDonos.put(p.getUuid(), now);
+		int c = donosCount.merge(p.getUuid(), 1, Integer::sum);
+		if (c <= 3) taxShare.merge(p.getUuid(), 25, Integer::sum);
+		U.msg(p, U.t("🕵 Донос принят. Гражданин " + target.getName().getString() + " будет проверен.", Formatting.DARK_GRAY));
+		Jail.arrest(target, "по доносу (анонимному, разумеется)", 20);
+	}
+
+	/** Помощник короля издаёт внеочередной указ. */
+	public static void ukaz(ServerPlayerEntity p) {
+		if (!is(p, "assistant")) {
+			U.msg(p, U.t("📜 Указы издаёт король и его помощник. Ты — ни то, ни другое.", Formatting.RED));
+			return;
+		}
+		if (!ukazUsed.add(p.getUuid())) {
+			U.msg(p, U.t("📜 В эту смену ты уже издавал указ. Король не любит конкурентов.", Formatting.GRAY));
+			return;
+		}
+		U.say(p.getServer(), U.t("📜 Помощник короля " + p.getName().getString() + " издаёт внеочередной указ!", Formatting.GOLD));
+		PizdecMod.forceLaw();
+	}
+
 	// ------------------------------------------------------------------ смены
 
 	public static void tick(MinecraftServer s) {
@@ -138,6 +220,20 @@ public final class Jobs {
 					int f = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.FISH_CAUGHT));
 					Integer was = fishSeen.put(p.getUuid(), f);
 					if (was != null && f > was) add(p, f - was);
+				}
+				if (j.id.equals("cook")) {
+					int sum = 0;
+					for (net.minecraft.item.Item f : FOODS) sum += p.getStatHandler().getStat(Stats.CRAFTED.getOrCreateStat(f));
+					Integer was = cookSeen.put(p.getUuid(), sum);
+					if (was != null && sum > was) add(p, sum - was);
+				}
+				if (!Jail.busy(p) && p.getServerWorld() == s.getOverworld()) {
+					PizdecState st = PizdecState.get(s);
+					Vec3d pos = p.getPos();
+					if (j.id.equals("portier") && Castle.inHotelLobby(st, pos)) add(p, 1);
+					if (j.id.equals("treasurer") && Castle.inTreasury(st, pos)) add(p, 1);
+					if (j.id.equals("assistant") && Castle.inThroneHall(st, pos)) add(p, 1);
+					if (j.id.equals("warden") && Prison.inside(st, pos)) add(p, 1);
 				}
 				if (j.id.equals("courier")) {
 					Vec3d now = p.getPos();
@@ -162,14 +258,15 @@ public final class Jobs {
 			if (j == null) continue;
 			int salary;
 			boolean done;
-			if (j.id.equals("tax_helper")) {
+			if (j.id.equals("tax_helper") || j.id.equals("bailiff") || j.id.equals("spy")) {
 				salary = taxShare.getOrDefault(p.getUuid(), 0);
 				done = true;
 			} else if (j.id.equals("banker")) {
 				salary = Math.min(300, Math.max(0, Money.get(p)) * 3 / 100);
 				done = true;
 			} else {
-				salary = j.salary;
+				salary = j.salary + taxShare.getOrDefault(p.getUuid(), 0);
+				if (j.id.equals("warden")) salary += 5 * Jail.inmates(s);
 				done = progressOf(p) >= j.quota;
 			}
 			if (Jail.busy(p)) done = false;
@@ -204,6 +301,8 @@ public final class Jobs {
 		}
 		progress.clear();
 		taxShare.clear();
+		donosCount.clear();
+		ukazUsed.clear();
 	}
 
 	// ------------------------------------------------------------------ найм
@@ -252,7 +351,7 @@ public final class Jobs {
 	// ------------------------------------------------------------------ биржа труда
 
 	public static final class JobsGui extends Gui {
-		private static final int[] SLOTS = {19, 20, 21, 22, 23, 24, 25, 29, 31, 33};
+		private static final int[] SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
 
 		private JobsGui(int syncId, PlayerInventory pinv, SimpleInventory inv, ServerPlayerEntity p) {
 			super(syncId, pinv, inv, p);

@@ -119,16 +119,16 @@ public final class Tax {
 				U.t("Проверка №" + st.taxRaids + ". Едем по адресам!", Formatting.RED));
 		U.soundAll(s, SoundEvents.EVENT_RAID_HORN, 4f, 1f);
 
-		Vec3d castleGate = new Vec3d(st.cx + 16.5, st.cy, st.cz - 3.5);
+		Vec3d castleGate = Castle.gateOutside(st);
 		for (ServerPlayerEntity p : U.players(s)) {
-			if (Address.valid(s, p.getUuid())) {
-				PizdecState.Address a = st.addresses.get(p.getUuid());
-				Visit v = new Visit(p.getUuid(), new Vec3d(a.x + 0.5, a.y, a.z + 0.5), a.name, castleGate, multiplier);
+			Address.Home home = Address.home(s, p.getUuid());
+			if (home != null) {
+				Visit v = new Visit(p.getUuid(), home.pos(), home.name(), castleGate, multiplier);
 				v.startDist = Math.max(1, horiz(v.pos, v.home));
 				v.bar.addPlayer(p);
 				Visit old = visits.put(p.getUuid(), v);
 				if (old != null) old.remove();
-				U.msg(p, U.t("🧾 Налоговая выехала из замка по адресу «" + a.name + "». Ехать " + (int) v.startDist
+				U.msg(p, U.t("🧾 Налоговая выехала из замка по адресу «" + home.name() + "». Ехать " + (int) v.startDist
 						+ " блоков.", Formatting.GOLD));
 			} else {
 				// прописки нет — налог списываем как есть, а дальше суровая кара
@@ -272,7 +272,7 @@ public final class Tax {
 				}
 				continue;
 			}
-			drive(v, w, flatDir(v.home, new Vec3d(PizdecState.get(s).cx + 16.5, v.pos.y, PizdecState.get(s).cz)), 1.4);
+			drive(v, w, flatDir(v.home, Castle.gateOutside(PizdecState.get(s))), 1.4);
 			if (v.t > 100) {
 				w.spawnParticles(ParticleTypes.POOF, v.pos.x, v.pos.y + 1, v.pos.z, 20, 1, 1, 1, 0.05);
 				v.remove();

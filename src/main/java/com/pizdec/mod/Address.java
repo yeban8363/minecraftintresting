@@ -24,6 +24,26 @@ public final class Address {
 		return PizdecState.get(p.getServer()).addresses.get(p.getUuid());
 	}
 
+	/** Куда ехать налоговой: табличка или номер в отеле. */
+	public record Home(net.minecraft.util.math.Vec3d pos, String name) {}
+
+	public static Home home(MinecraftServer s, UUID id) {
+		PizdecState st = PizdecState.get(s);
+		int room = Hotel.roomOf(s, id);
+		if (room >= 0) {
+			Hotel.Room r = Hotel.room(room);
+			return new Home(r.center(st), "Королевский отель, номер " + r.no());
+		}
+		if (!valid(s, id)) return null;
+		PizdecState.Address a = st.addresses.get(id);
+		return new Home(new net.minecraft.util.math.Vec3d(a.x + 0.5, a.y, a.z + 0.5), a.name);
+	}
+
+	/** Есть ли прописка: табличка цела или снят номер в отеле. */
+	public static boolean registered(MinecraftServer s, UUID id) {
+		return Hotel.roomOf(s, id) >= 0 || valid(s, id);
+	}
+
 	/** Цела ли табличка по адресу. Если нет — адрес аннулируется. */
 	public static boolean valid(MinecraftServer s, UUID id) {
 		PizdecState st = PizdecState.get(s);

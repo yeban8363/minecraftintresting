@@ -20,6 +20,7 @@ public class PizdecState extends PersistentState {
 	public int kx, ky, kz;
 	public boolean warBuilt;
 	public int wx, wy, wz;
+	public int version;
 	public int decrees;
 	public int taxRaids;
 	public int arrests;
@@ -44,6 +45,19 @@ public class PizdecState extends PersistentState {
 	public final Map<UUID, Integer> jobMisses = new HashMap<>();
 	public final Map<UUID, Address> addresses = new HashMap<>();
 	public final Map<UUID, String> names = new HashMap<>();
+
+	/** Аренда номера в отеле: номер → кто и до какого мирового тика. */
+	public static final class Rental {
+		public UUID who;
+		public long until;
+
+		public Rental(UUID who, long until) {
+			this.who = who;
+			this.until = until;
+		}
+	}
+
+	public final Map<Integer, Rental> hotel = new HashMap<>();
 
 	private static final Type<PizdecState> TYPE = new Type<>(PizdecState::new, PizdecState::fromNbt, null);
 
@@ -85,6 +99,7 @@ public class PizdecState extends PersistentState {
 		st.wx = nbt.getInt("wx");
 		st.wy = nbt.getInt("wy");
 		st.wz = nbt.getInt("wz");
+		st.version = nbt.getInt("version");
 		st.decrees = nbt.getInt("decrees");
 		st.taxRaids = nbt.getInt("taxRaids");
 		st.arrests = nbt.getInt("arrests");
@@ -98,6 +113,15 @@ public class PizdecState extends PersistentState {
 		readMap(nbt, "addresses", (id, c) -> st.addresses.put(id,
 				new Address(c.getInt("x"), c.getInt("y"), c.getInt("z"), c.getString("name"))));
 		readMap(nbt, "names", (id, c) -> st.names.put(id, c.getString("n")));
+		NbtCompound h = nbt.getCompound("hotel");
+		for (String k : h.getKeys()) {
+			try {
+				NbtCompound c = h.getCompound(k);
+				st.hotel.put(Integer.parseInt(k), new Rental(UUID.fromString(c.getString("who")), c.getLong("until")));
+			} catch (IllegalArgumentException ignored) {
+				// пропускаем
+			}
+		}
 		return st;
 	}
 
@@ -120,6 +144,7 @@ public class PizdecState extends PersistentState {
 		nbt.putInt("wx", wx);
 		nbt.putInt("wy", wy);
 		nbt.putInt("wz", wz);
+		nbt.putInt("version", version);
 		nbt.putInt("decrees", decrees);
 		nbt.putInt("taxRaids", taxRaids);
 		nbt.putInt("arrests", arrests);
@@ -177,6 +202,15 @@ public class PizdecState extends PersistentState {
 			n.put(id.toString(), c);
 		});
 		nbt.put("names", n);
+
+		NbtCompound h = new NbtCompound();
+		hotel.forEach((room, r) -> {
+			NbtCompound c = new NbtCompound();
+			c.putString("who", r.who.toString());
+			c.putLong("until", r.until);
+			h.put(String.valueOf(room), c);
+		});
+		nbt.put("hotel", h);
 		return nbt;
 	}
 }

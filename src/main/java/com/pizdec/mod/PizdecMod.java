@@ -68,7 +68,6 @@ public class PizdecMod implements ModInitializer {
 			Money.obj(s);
 			Castle.ensureBuilt(s);
 			Prison.ensureBuilt(s);
-			Castle.ensureStalls(s);
 			Court.ensureBuilt(s);
 			Jail.onServerStart(s);
 			Court.onServerStart();
@@ -80,6 +79,10 @@ public class PizdecMod implements ModInitializer {
 
 		ServerTickEvents.END_SERVER_TICK.register(this::tick);
 		ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			if (Castle.isOldNpc(entity)) {
+				entity.discard();
+				return;
+			}
 			Jail.onEntityLoad(entity);
 			Court.onEntityLoad(entity);
 			Tax.onEntityLoad(entity);
@@ -119,6 +122,7 @@ public class PizdecMod implements ModInitializer {
 		}
 		Laws.tick(s);
 		Jail.tick(s);
+		Hotel.tick(s);
 		Court.tick(s);
 		War.tick(s);
 		Tax.tick(s);
@@ -135,7 +139,10 @@ public class PizdecMod implements ModInitializer {
 			// прыжки ловим через статистику — без миксинов
 			int j = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP));
 			Integer was = jumps.put(p.getUuid(), j);
-			if (was != null && j > was && !Jail.jailed(p)) Laws.onJump(p);
+			if (was != null && j > was && !Jail.jailed(p)) {
+				Laws.onJump(p);
+				Jobs.onJump(p);
+			}
 
 			// должникам периодически напоминаем
 			if (s.getTicks() % (20 * 60) == 0 && Money.get(p) < -100 && !Jail.jailed(p)) {
@@ -155,7 +162,7 @@ public class PizdecMod implements ModInitializer {
 		if (st.castleBuilt) {
 			U.msg(p, U.t("🏰 Замок короля: " + U.coords(st.cx + 16, st.cy, st.cz) + " (ворота). Налоговая — каждые 5 минут, "
 					+ "новый закон — каждые 40 секунд, за нарушения — тюрьма. Во дворе замка — магазин, казино и апгрейдер. "
-					+ "/bank, /zakon, /tyurma, /magazin, /kazino, /upgrade.", Formatting.YELLOW));
+					+ "Отель, биржа труда, казна — тоже там. /bank, /zakon, /rabota, /otel, /adres, /tyurma.", Formatting.YELLOW));
 		}
 		if (Jail.jailed(p)) {
 			Jail.suppressEscape(p);
@@ -166,7 +173,7 @@ public class PizdecMod implements ModInitializer {
 		Ranks.applyTeam(p);
 		st.names.put(p.getUuid(), p.getName().getString());
 		st.markDirty();
-		if (!Address.valid(p.getServer(), p.getUuid())) {
+		if (!Address.registered(p.getServer(), p.getUuid())) {
 			U.msg(p, U.t("🏠 У тебя нет прописки! Поставь табличку у дома и введи /adres рядом с ней, "
 					+ "иначе налоговая отправит тебя в тюрьму или на войну.", Formatting.RED));
 		}
@@ -189,6 +196,14 @@ public class PizdecMod implements ModInitializer {
 		EntitySleepEvents.ALLOW_SLEEPING.register((player, pos) -> {
 			if (player instanceof ServerPlayerEntity p) {
 				if (Jail.jailed(p)) return PlayerEntity.SleepFailureReason.OTHER_PROBLEM;
+				if (Laws.is("no_beds") && !p.isCreative()) {
+					Jail.violation(p, "лёг спать");
+					return PlayerEntity.SleepFailureReason.OTHER_PROBLEM;
+				}
+				if (Hotel.inOwnRoom(p)) {
+					U.bar(p, U.t("🏨 Сладких снов. Кровать включена в стоимость номера.", Formatting.AQUA));
+					return null;
+				}
 				if (!Money.pay(p, price(15), "аренду кровати")) {
 					Jail.arrest(p, "попытка поспать бесплатно", 20);
 					return PlayerEntity.SleepFailureReason.OTHER_PROBLEM;
@@ -206,6 +221,7 @@ public class PizdecMod implements ModInitializer {
 			}
 			BlockState b = world.getBlockState(hit.getBlockPos());
 			if (!p.isCreative() && !Laws.allowUse(p, b, p.getStackInHand(hand))) return ActionResult.FAIL;
+			if (hand == Hand.MAIN_HAND && p.getMainHandStack().getItem() instanceof net.minecraft.item.BlockItem) Jobs.onPlace(p);
 			if (hand != Hand.MAIN_HAND) return ActionResult.PASS;
 			if (Laws.is("pay_click") && !p.isCreative()) Money.fine(p, 1, "платный ПКМ");
 			if (p.isSneaking() && !p.getMainHandStack().isEmpty()) return ActionResult.PASS;
@@ -279,6 +295,19 @@ public class PizdecMod implements ModInitializer {
 			}
 			if (tags.contains(Castle.JESTER_TAG)) {
 				Jail.arrest(p, "обидел шута", 30);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Court.JURY_TAG)) {
+				Jail.arrest(p, "давление на присяжных", 90);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Castle.GATE_GUARD_TAG) || tags.contains(Castle.CAPTAIN_TAG)) {
+				Jail.arrest(p, "нападение на стражу", 120);
+				return ActionResult.FAIL;
+			}
+			if (tags.contains(Castle.HR_TAG) || tags.contains(Castle.RECEPTION_TAG) || tags.contains(Castle.TREASURER_TAG)
+					|| tags.contains(Castle.SECRETARY_TAG)) {
+				Jail.arrest(p, "нападение на королевского служащего", 60);
 				return ActionResult.FAIL;
 			}
 			if (tags.contains(Court.JUDGE_TAG) || tags.contains(Court.PROSECUTOR_TAG) || tags.contains(Court.LAWYER_TAG)) {
@@ -408,11 +437,55 @@ public class PizdecMod implements ModInitializer {
 			}
 			if (tags.contains(Castle.INSPECTOR_TAG)) {
 				if (hand == Hand.MAIN_HAND) {
-					PizdecState.Address a = Address.valid(p.getServer(), p.getUuid()) ? Address.of(p) : null;
+					Address.Home a = Address.home(p.getServer(), p.getUuid());
 					U.msg(p, U.t("Зинаида Петровна: «Ваш баланс " + Money.get(p) + ". Следующая проверка через "
 							+ Tax.secondsLeft(taxTimer) + " сек. " + (a == null ? "Прописки у вас НЕТ, гражданин. /adres"
-							: "Прописаны по адресу «" + a.name + "».") + " В реестре " + PizdecState.get(p.getServer()).addresses.size()
+							: "Прописаны по адресу «" + a.name() + "».") + " В реестре " + PizdecState.get(p.getServer()).addresses.size()
 							+ " адресов. Справки не выдаём, обед.»", Formatting.RED));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.HR_TAG)) {
+				if (hand == Hand.MAIN_HAND) Jobs.JobsGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.RECEPTION_TAG)) {
+				if (hand == Hand.MAIN_HAND) Hotel.ReceptionGui.open(p);
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.TREASURER_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("💰 Казначей Аркадий: «На вашем счету " + Money.get(p) + " бабла. Сдать ценности: /bank sell. "
+							+ "Купить звание: /zvaniya. Проценты не начисляем, мы же не банк. А, мы банк. Всё равно не начисляем.»",
+							Formatting.GOLD));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.CAPTAIN_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("⚔ Капитан Петрович: «" + U.pick("В стражу берём с Рыцаря. Устраивайся через биржу труда.",
+							"На войне сейчас " + PizdecState.get(p.getServer()).exiles.size() + " наших. Держатся.",
+							"Видел карету? Это мы её обслуживаем. Коня Гошу не трогать.",
+							"Подъём в шесть, отбой когда король скажет.") + "»", Formatting.BLUE));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.SECRETARY_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("📜 Секретарь Аполлинарий: «Сейчас действует: " + Laws.currentText() + ". Указов издано: "
+							+ PizdecState.get(p.getServer()).decrees + ". Помощник короля может издать внеочередной указ: /ukaz»",
+							Formatting.GOLD));
+				}
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Castle.GATE_GUARD_TAG)) {
+				if (hand == Hand.MAIN_HAND) U.msg(p, U.t("Стражник: «Проходи. Но я за тобой слежу.»", Formatting.GRAY));
+				return ActionResult.SUCCESS;
+			}
+			if (tags.contains(Court.JURY_TAG)) {
+				if (hand == Hand.MAIN_HAND) {
+					U.msg(p, U.t("Присяжный: «" + U.pick("Виновен. А что, суд уже начался?", "Я тут за бесплатный обед.",
+							"Мы всегда голосуем как скажет судья.", "Хр-р-р…") + "»", Formatting.GRAY));
 				}
 				return ActionResult.SUCCESS;
 			}
@@ -500,11 +573,16 @@ public class PizdecMod implements ModInitializer {
 
 	// ------------------------------------------------------------------ команды
 
+	/** Внеочередной указ (помощник короля, аудиенция). */
+	public static void forceLaw() {
+		lawTimer = Laws.PERIOD;
+	}
+
 	/** Магазин/казино/апгрейдер по команде: рядом с лавкой бесплатно, издалека — 5 бабла «за доставку». */
 	private static int remote(ServerPlayerEntity p, String what) {
 		PizdecState st = PizdecState.get(p.getServer());
 		boolean near = st.castleBuilt && p.getServerWorld() == p.getServer().getOverworld()
-				&& p.squaredDistanceTo(st.cx + 4, st.cy, st.cz + 18) < 20 * 20;
+				&& p.squaredDistanceTo(Castle.courtyard(st)) < 40 * 40;
 		if (!near && !Jail.jailed(p) && !Money.pay(p, 5, "дистанционное обслуживание")) return 0;
 		switch (what) {
 			case "shop" -> Shop.open(p);
@@ -574,6 +652,34 @@ public class PizdecMod implements ModInitializer {
 		d.register(CommandManager.literal("kazino").executes(c -> remote(c.getSource().getPlayerOrThrow(), "casino")));
 		d.register(CommandManager.literal("upgrade").executes(c -> remote(c.getSource().getPlayerOrThrow(), "upgrade")));
 
+		d.register(CommandManager.literal("otel").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			int r = Hotel.roomOf(p.getServer(), p.getUuid());
+			if (r >= 0) {
+				Hotel.Room room = Hotel.room(r);
+				U.msg(p, U.t("🏨 Твой номер: " + room.no() + ". Телепорт в номер стоит 5 бабла — /otel domoy", Formatting.AQUA));
+			} else {
+				U.msg(p, U.t("🏨 Номера снимают у администратора Светланы в западном крыле замка (лобби отеля).", Formatting.AQUA));
+			}
+			return 1;
+		}).then(CommandManager.literal("domoy").executes(c -> {
+			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
+			int r = Hotel.roomOf(p.getServer(), p.getUuid());
+			if (r < 0 || Jail.busy(p) || !Money.pay(p, 5, "такси до отеля")) return 0;
+			net.minecraft.util.math.Vec3d v = Hotel.room(r).center(PizdecState.get(p.getServer()));
+			p.teleport(p.getServer().getOverworld(), v.x, v.y, v.z, p.getYaw(), 0f);
+			return 1;
+		})));
+		d.register(CommandManager.literal("donos")
+				.then(CommandManager.argument("player", EntityArgumentType.player()).executes(c -> {
+					Jobs.donos(c.getSource().getPlayerOrThrow(), EntityArgumentType.getPlayer(c, "player"));
+					return 1;
+				})));
+		d.register(CommandManager.literal("ukaz").executes(c -> {
+			Jobs.ukaz(c.getSource().getPlayerOrThrow());
+			return 1;
+		}));
+
 		d.register(CommandManager.literal("rabota").executes(c -> {
 			Jobs.JobsGui.open(c.getSource().getPlayerOrThrow());
 			return 1;
@@ -625,7 +731,7 @@ public class PizdecMod implements ModInitializer {
 		d.register(CommandManager.literal("tyurma").executes(c -> {
 			ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
 			PizdecState st = PizdecState.get(p.getServer());
-			String where = st.prisonBuilt ? U.coords(st.px + 20, st.py, st.pz + 6) : "ещё не построена";
+			String where = st.prisonBuilt ? U.coords(st.px + 55, st.py, st.pz + 13) : "ещё не построена";
 			String me = Jail.jailed(p) ? "Ты сидишь ещё " + Jail.secondsLeft(p) + " сек. Залог: /zalog" : "Ты пока на свободе.";
 			U.msg(p, U.t("⛓ Тюрьма: " + where + ". Сидит: " + Jail.inmates(p.getServer()) + ". " + me, Formatting.GRAY));
 			return 1;
@@ -647,9 +753,11 @@ public class PizdecMod implements ModInitializer {
 				}))
 				.then(CommandManager.literal("castle").executes(c -> {
 					PizdecState st = PizdecState.get(c.getSource().getServer());
-					c.getSource().sendFeedback(() -> U.t("🏰 Замок: " + U.coords(st.cx + 16, st.cy, st.cz)
-							+ "  трон: " + U.coords(st.cx + 16, st.cy + 1, st.cz + 27)
-							+ "  тюрьма: " + U.coords(st.px + 20, st.py, st.pz + 6), Formatting.YELLOW), false);
+					c.getSource().sendFeedback(() -> U.t("🏰 Замок (ворота): " + U.coords(st.cx + 28, st.cy, st.cz - 4)
+							+ "  трон: " + U.coords(st.cx + 28, st.cy + 1, st.cz + 40)
+							+ "  тюрьма: " + U.coords(st.px + 55, st.py, st.pz + 13)
+							+ "  суд: " + U.coords(st.kx + 32, st.ky, st.kz + 10)
+							+ (st.warBuilt ? "  война: " + U.coords(st.wx, st.wy, st.wz) : ""), Formatting.YELLOW), false);
 					return 1;
 				}))
 				.then(CommandManager.literal("jail")

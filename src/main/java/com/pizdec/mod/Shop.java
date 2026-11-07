@@ -133,9 +133,14 @@ public final class Shop extends Gui {
 		if (slot >= OFFERS.size() || slot >= 45) return;
 		Offer o = OFFERS.get(slot);
 		int cost = price(o.price);
+		if (Laws.is("shop_closed")) {
+			U.bar(player, U.t("🛒 Магазин закрыт на учёт. Указ короля.", Formatting.RED));
+			return;
+		}
 		if (Money.pay(player, cost, "покупку")) {
 			player.getInventory().offerOrDrop(o.stack.get());
 			Laws.onBuy(player);
+			if (Laws.is("cashback") && cost >= 4) Money.give(player, cost * 3 / 10, "кэшбэк");
 			U.sound(player, SoundEvents.ENTITY_VILLAGER_YES, 1f, 1f);
 			redraw();
 		} else if (Money.get(player) < 0) {

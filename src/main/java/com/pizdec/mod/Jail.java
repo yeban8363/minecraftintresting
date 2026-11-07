@@ -106,6 +106,10 @@ public final class Jail {
 	/** Нарушение действующего указа. Первые 5 секунд указа — время на ознакомление. */
 	public static void violation(ServerPlayerEntity p, String what) {
 		if (busy(p) || p.isCreative() || p.isSpectator()) return;
+		if (Hotel.diplomat(p)) {
+			U.bar(p, U.t("🏨 Дипломатическая неприкосновенность (королевский люкс)", Formatting.AQUA));
+			return;
+		}
 		if (!Laws.graceOver()) {
 			U.bar(p, U.t("⚠ Нарушение указа! У тебя ещё пара секунд на ознакомление, потом — тюрьма", Formatting.YELLOW));
 			return;
@@ -172,6 +176,7 @@ public final class Jail {
 		st.jail.put(p.getUuid(), r);
 		st.arrests++;
 		st.markDirty();
+		Jobs.onArrest(s, p);
 
 		U.say(s, U.t("🚔 " + p.getName().getString() + " арестован за " + crime + ". Срок: " + ticks / 20 + " сек.",
 				Formatting.RED));

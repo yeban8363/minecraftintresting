@@ -111,6 +111,10 @@ public final class Casino extends Gui {
 			Jail.violation(player, "азартные игры");
 			return;
 		}
+		if (Laws.is("casino_closed")) {
+			U.bar(player, U.t("🎰 Казино опечатано налоговой. Указ короля.", Formatting.RED));
+			return;
+		}
 		if (!Money.pay(player, bet, "ставку")) return;
 		game = g;
 		t = 0;
@@ -222,6 +226,7 @@ public final class Casino extends Gui {
 	private void finish(int win, String big) {
 		game = null;
 		if (Laws.is("casino_x2")) win *= 2;
+		if (Laws.is("jackpot_day")) win *= 3;
 		if (win > 0) {
 			int tax = win > 100 ? win / 10 : 0;
 			Money.add(player, win - tax);

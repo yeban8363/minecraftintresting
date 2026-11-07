@@ -20,6 +20,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.village.VillagerProfession;
 import net.minecraft.world.Heightmap;
@@ -29,7 +30,8 @@ import net.minecraft.world.Heightmap;
  * слушает дело (12 секунд) и выносит приговор. Адвокат и взятка помогают. Иногда.
  */
 public final class Court {
-	public static final int W = 17, D = 13;
+	public static final int W = 29, D = 21;
+	public static final String JURY_TAG = "pizdec_jury";
 	public static final String JUDGE_TAG = "pizdec_judge";
 	public static final String PROSECUTOR_TAG = "pizdec_prosecutor";
 	public static final String LAWYER_TAG = "pizdec_lawyer";
@@ -53,7 +55,6 @@ public final class Court {
 
 	private static final Map<UUID, Trial> trials = new HashMap<>();
 	private static boolean spawningLawyer;
-	private static ServerWorld w;
 
 	private Court() {}
 
@@ -63,116 +64,114 @@ public final class Court {
 		PizdecState st = PizdecState.get(s);
 		if (st.courtBuilt || !st.prisonBuilt) return;
 		ServerWorld world = s.getOverworld();
-		int ox = st.px + 2, oz = st.pz + 19;
-		for (int cx = (ox - 6) >> 4; cx <= (ox + W + 8) >> 4; cx++) {
-			for (int cz = (oz - 6) >> 4; cz <= (oz + D + 6) >> 4; cz++) world.getChunk(cx, cz);
-		}
-		int oy = Math.max(world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, ox + W / 2, oz + D / 2),
-				world.getSeaLevel() + 1);
-		build(world, ox, oy, oz);
+		B.w = world;
+		int ox = st.cx - 52, oz = st.cz + 30;
+		B.loadChunks(ox - 6, oz - 6, ox + W + 10, oz + D + 6);
+		int oy = B.ground(ox + W / 2, oz + D / 2);
+		build(ox, oy, oz);
 		st.courtBuilt = true;
 		st.kx = ox;
 		st.ky = oy;
 		st.kz = oz;
 		st.markDirty();
-		Castle.npc(world, ox + 1.5, oy + 1, oz + 6.5, 270f, JUDGE_TAG,
+		Castle.npc(world, ox + 2.5, oy + 1, oz + 10.5, 270f, JUDGE_TAG,
 				U.t("⚖ Судья Фемида Петровна", Formatting.DARK_PURPLE, Formatting.BOLD), VillagerProfession.CLERIC);
-		Castle.npc(world, ox + 6.5, oy, oz + 10.5, 0f, PROSECUTOR_TAG,
-				U.t("Прокурор Злобин", Formatting.DARK_RED), VillagerProfession.LIBRARIAN);
-		PizdecMod.LOG.info("Суд построен на {} {} {}", ox, oy, oz);
-	}
-
-	private static void set(int x, int y, int z, BlockState b) {
-		w.setBlockState(new BlockPos(x, y, z), b, Block.NOTIFY_LISTENERS);
-	}
-
-	private static void set(int x, int y, int z, Block b) {
-		set(x, y, z, b.getDefaultState());
-	}
-
-	private static void build(ServerWorld world, int ox, int oy, int oz) {
-		w = world;
-		BlockState air = Blocks.AIR.getDefaultState();
-		for (int x = -2; x <= W + 5; x++) {
-			for (int z = -2; z <= D + 1; z++) {
-				for (int y = oy; y <= oy + 12; y++) {
-					BlockPos p = new BlockPos(ox + x, y, oz + z);
-					if (!w.getBlockState(p).isAir()) w.setBlockState(p, air, Block.NOTIFY_LISTENERS);
-				}
-				for (int y = oy - 1; y > oy - 40; y--) {
-					BlockState b = w.getBlockState(new BlockPos(ox + x, y, oz + z));
-					boolean soft = b.isAir() || !b.getFluidState().isEmpty() || b.isReplaceable() || b.isIn(BlockTags.LEAVES);
-					if (y < oy - 3 && !soft) break;
-					boolean in = x >= 0 && x < W && z >= 0 && z < D;
-					set(ox + x, y, oz + z, y == oy - 1 ? (in ? Blocks.DARK_OAK_PLANKS : Blocks.GRAVEL) : Blocks.STONE_BRICKS);
-				}
-			}
+		Castle.npc(world, ox + 10.5, oy, oz + 7.5, 90f, PROSECUTOR_TAG, U.t("Прокурор Злобин", Formatting.DARK_RED),
+				VillagerProfession.LIBRARIAN);
+		VillagerProfession[] jp = {VillagerProfession.FARMER, VillagerProfession.FISHERMAN, VillagerProfession.BUTCHER,
+				VillagerProfession.MASON, VillagerProfession.SHEPHERD, VillagerProfession.NITWIT};
+		String[] jn = {"Присяжный дед Митяй", "Присяжная тётя Люба", "Присяжный мясник Гриша", "Присяжный каменщик Вова",
+				"Присяжная пастушка Оля", "Присяжный (спит)"};
+		for (int i = 0; i < 6; i++) {
+			Castle.npc(world, ox + 16.5 + i, oy, oz + 2.5, 0f, JURY_TAG, U.t(jn[i], Formatting.GRAY), jp[i]);
 		}
+		PizdecMod.LOG.info("Суд v2 построен на {} {} {}", ox, oy, oz);
+	}
+
+	private static void build(int ox, int oy, int oz) {
+		B.site(ox - 2, oz - 2, ox + W + 6, oz + D + 1, oy, 14, Blocks.STONE_BRICKS, Blocks.STONE_BRICKS);
+		// стены, крыша, карниз
+		B.fill(ox, oy - 1, oz, ox + W - 1, oy - 1, oz + D - 1, Blocks.DARK_OAK_PLANKS);
+		B.walls(ox, oy, oz, ox + W - 1, oy + 8, oz + D - 1, Blocks.SMOOTH_STONE);
 		for (int x = 0; x < W; x++) {
 			for (int z = 0; z < D; z++) {
 				boolean edge = x == 0 || x == W - 1 || z == 0 || z == D - 1;
-				boolean corner = (x == 0 || x == W - 1) && (z == 0 || z == D - 1);
-				if (edge) {
-					for (int y = oy; y <= oy + 6; y++) set(ox + x, y, oz + z, corner ? Blocks.QUARTZ_PILLAR : Blocks.SMOOTH_STONE);
-					if ((x + z) % 2 == 0) set(ox + x, oy + 8, oz + z, Blocks.SMOOTH_STONE);
-				}
 				boolean lamp = !edge && x % 4 == 2 && z % 4 == 2;
-				set(ox + x, oy + 7, oz + z, lamp ? Blocks.GLOWSTONE : Blocks.DARK_OAK_PLANKS);
+				B.set(ox + x, oy + 9, oz + z, edge ? Blocks.QUARTZ_BRICKS : lamp ? Blocks.GLOWSTONE : Blocks.DARK_OAK_PLANKS);
 			}
 		}
-		// окна
-		for (int x = 3; x < W - 2; x += 3) {
-			for (int y = oy + 2; y <= oy + 4; y++) {
-				set(ox + x, y, oz, Blocks.GLASS);
-				set(ox + x, y, oz + D - 1, Blocks.GLASS);
-			}
+		for (int x = 0; x < W; x += 4) {
+			B.fill(ox + x, oy, oz, ox + x, oy + 8, oz, Blocks.QUARTZ_PILLAR);
+			B.fill(ox + x, oy, oz + D - 1, ox + x, oy + 8, oz + D - 1, Blocks.QUARTZ_PILLAR);
 		}
-		// вход с востока
-		for (int z = 5; z <= 7; z++) for (int y = oy; y <= oy + 3; y++) set(ox + W - 1, y, oz + z, air);
-		set(ox + W, oy, oz + 4, Blocks.LANTERN);
-		set(ox + W, oy, oz + 8, Blocks.LANTERN);
+		for (int x = 2; x < W - 1; x += 4) {
+			B.fill(ox + x, oy + 3, oz, ox + x, oy + 6, oz, Blocks.GLASS);
+			B.fill(ox + x, oy + 3, oz + D - 1, ox + x, oy + 6, oz + D - 1, Blocks.GLASS);
+		}
+		// вход с востока и портик с колоннами
+		B.fill(ox + W - 1, oy, oz + 9, ox + W - 1, oy + 3, oz + 11, Blocks.AIR);
+		B.fill(ox + W, oy - 1, oz + 4, ox + W + 3, oy - 1, oz + 16, Blocks.QUARTZ_BLOCK);
+		for (int z : new int[] {5, 8, 12, 15}) B.fill(ox + W + 2, oy, oz + z, ox + W + 2, oy + 7, oz + z, Blocks.QUARTZ_PILLAR);
+		B.fill(ox + W, oy + 8, oz + 4, ox + W + 3, oy + 8, oz + 16, Blocks.QUARTZ_SLAB);
+		B.fill(ox + W - 1, oy + 5, oz + 9, ox + W - 1, oy + 6, oz + 11, Blocks.GOLD_BLOCK);
+		B.set(ox + W - 1, oy + 7, oz + 10, Blocks.GOLD_BLOCK);
+		B.fill(ox + W + 4, oy - 1, oz + 9, ox + W + 6, oy - 1, oz + 11, Blocks.GRAVEL);
+
+		// ковровая дорожка
+		B.fill(ox + 5, oy, oz + 9, ox + W - 2, oy, oz + 11, Blocks.RED_CARPET);
 		// возвышение судьи и стол
-		for (int z = 3; z <= 9; z++) {
-			set(ox + 1, oy, oz + z, Blocks.DARK_OAK_PLANKS);
-			set(ox + 2, oy, oz + z, Blocks.DARK_OAK_PLANKS);
-			set(ox + 3, oy, oz + z, Blocks.DARK_OAK_PLANKS);
-			set(ox + 3, oy + 1, oz + z, Blocks.DARK_OAK_PLANKS);
-		}
-		for (int y = oy + 1; y <= oy + 5; y++) set(ox + 1, y, oz + 6, y == oy + 1 ? Blocks.AIR : Blocks.RED_WOOL);
-		set(ox + 1, oy + 5, oz + 5, Blocks.GOLD_BLOCK);
-		set(ox + 1, oy + 5, oz + 7, Blocks.GOLD_BLOCK);
-		// скамья подсудимых (клетка)
-		for (int x = 6; x <= 10; x++) {
-			for (int z = 1; z <= 4; z++) {
-				boolean cage = x == 6 || x == 10 || z == 4;
-				if (cage) for (int y = oy; y <= oy + 3; y++) set(ox + x, y, oz + z, Blocks.IRON_BARS);
-			}
-		}
-		set(ox + 8, oy + 3, oz + 2, Blocks.LANTERN);
-		// трибуна адвоката
-		set(ox + 9, oy, oz + 10, Blocks.LECTERN);
+		B.fill(ox + 1, oy, oz + 6, ox + 4, oy, oz + 14, Blocks.DARK_OAK_PLANKS);
+		B.fill(ox + 4, oy + 1, oz + 7, ox + 4, oy + 1, oz + 13, Blocks.DARK_OAK_PLANKS);
+		B.fill(ox + 4, oy + 2, oz + 7, ox + 4, oy + 2, oz + 13, Blocks.DARK_OAK_SLAB);
+		B.set(ox + 3, oy + 2, oz + 8, Blocks.LANTERN);
+		B.set(ox + 3, oy + 2, oz + 12, Blocks.LANTERN);
+		// герб за спиной судьи
+		B.fill(ox, oy + 3, oz + 8, ox, oy + 7, oz + 12, Blocks.RED_WOOL);
+		B.fill(ox, oy + 4, oz + 9, ox, oy + 6, oz + 11, Blocks.GOLD_BLOCK);
+		B.set(ox, oy + 5, oz + 10, Blocks.DIAMOND_BLOCK);
+		// стол секретаря суда
+		B.fill(ox + 6, oy, oz + 4, ox + 6, oy, oz + 5, Blocks.SPRUCE_PLANKS);
+		B.set(ox + 6, oy + 1, oz + 4, Blocks.LECTERN);
+		// клетка подсудимого
+		B.fill(ox + 9, oy, oz + 1, ox + 9, oy + 3, oz + 5, Blocks.IRON_BARS);
+		B.fill(ox + 13, oy, oz + 1, ox + 13, oy + 3, oz + 5, Blocks.IRON_BARS);
+		B.fill(ox + 9, oy, oz + 5, ox + 13, oy + 3, oz + 5, Blocks.IRON_BARS);
+		B.fill(ox + 9, oy + 4, oz + 1, ox + 13, oy + 4, oz + 5, Blocks.IRON_BARS);
+		B.fill(ox + 10, oy - 1, oz + 1, ox + 12, oy - 1, oz + 4, Blocks.POLISHED_DEEPSLATE);
+		// столы обвинения и защиты
+		B.fill(ox + 8, oy, oz + 8, ox + 12, oy, oz + 8, Blocks.SPRUCE_PLANKS);
+		B.fill(ox + 8, oy, oz + 12, ox + 12, oy, oz + 12, Blocks.SPRUCE_PLANKS);
+		// свидетельская трибуна
+		B.fill(ox + 5, oy, oz + 16, ox + 7, oy, oz + 18, Blocks.DARK_OAK_PLANKS);
+		B.set(ox + 6, oy + 1, oz + 17, Blocks.LECTERN);
+		// ложа присяжных
+		B.fill(ox + 15, oy - 1, oz + 1, ox + 22, oy - 1, oz + 4, Blocks.SPRUCE_PLANKS);
+		B.fill(ox + 15, oy, oz + 4, ox + 22, oy, oz + 4, Blocks.SPRUCE_FENCE);
 		// скамьи публики
-		for (int x = 12; x <= 14; x += 2) {
-			for (int z = 2; z <= 10; z++) {
-				if (z >= 5 && z <= 7) continue;
-				set(ox + x, oy, oz + z, Blocks.SPRUCE_SLAB);
+		for (int x = 16; x <= 26; x += 2) {
+			for (int z = 7; z <= 18; z++) {
+				if (z >= 9 && z <= 11) continue;
+				B.set(ox + x, oy, oz + z, B.stairs(Blocks.SPRUCE_STAIRS, Direction.EAST));
 			}
 		}
-		// дорожка к воротам
-		for (int x = W; x <= W + 5; x++) for (int z = 5; z <= 7; z++) set(ox + x, oy - 1, oz + z, Blocks.GRAVEL);
+		// люстры
+		for (int x = 8; x <= 24; x += 8) B.chandelier(ox + x, oy + 9, oz + 10, 2);
+		// архив
+		B.fill(ox + 1, oy, oz + 18, ox + 4, oy + 3, oz + 19, Blocks.BOOKSHELF);
+		B.fill(ox + 1, oy, oz + 1, ox + 4, oy + 3, oz + 2, Blocks.BOOKSHELF);
 	}
 
 	public static boolean inside(PizdecState st, BlockPos p) {
-		return st.courtBuilt && p.getX() >= st.kx - 2 && p.getX() <= st.kx + W + 5 && p.getZ() >= st.kz - 2
-				&& p.getZ() <= st.kz + D + 1 && p.getY() >= st.ky - 6 && p.getY() <= st.ky + 10;
+		return st.courtBuilt && p.getX() >= st.kx - 2 && p.getX() <= st.kx + W + 6 && p.getZ() >= st.kz - 2
+				&& p.getZ() <= st.kz + D + 1 && p.getY() >= st.ky - 6 && p.getY() <= st.ky + 12;
 	}
 
 	public static Vec3d dock(PizdecState st) {
-		return new Vec3d(st.kx + 8.5, st.ky, st.kz + 2.5);
+		return new Vec3d(st.kx + 11.5, st.ky, st.kz + 3.0);
 	}
 
 	public static Vec3d gate(PizdecState st) {
-		return new Vec3d(st.kx + W + 3.5, st.ky, st.kz + 6.5);
+		return new Vec3d(st.kx + W + 5.5, st.ky, st.kz + 10.5);
 	}
 
 	// ------------------------------------------------------------------ процесс
@@ -220,7 +219,7 @@ public final class Court {
 	private static void spawnLawyer(ServerPlayerEntity p, PizdecState st, Trial tr) {
 		spawningLawyer = true;
 		try {
-			tr.lawyerNpc = Castle.npc(p.getServer().getOverworld(), st.kx + 9.5, st.ky, st.kz + 9.5, 180f, LAWYER_TAG,
+			tr.lawyerNpc = Castle.npc(p.getServer().getOverworld(), st.kx + 10.5, st.ky, st.kz + 13.5, 90f, LAWYER_TAG,
 					U.t("💼 " + LAWYERS[tr.lawyer], Formatting.AQUA), VillagerProfession.CARTOGRAPHER);
 		} finally {
 			spawningLawyer = false;

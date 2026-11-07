@@ -123,6 +123,11 @@ public final class Laws {
 	private static final Identifier FALL = Identifier.of("pizdec", "law_fall");
 	private static final Identifier HEALTH = Identifier.of("pizdec", "law_health");
 	private static final Identifier DAMAGE = Identifier.of("pizdec", "law_damage");
+	private static final Identifier REACH = Identifier.of("pizdec", "law_reach");
+	private static final Identifier STEP = Identifier.of("pizdec", "law_step");
+	private static final Identifier BREAK = Identifier.of("pizdec", "law_break");
+	private static final Identifier MOVE = Identifier.of("pizdec", "law_move");
+	private static long frozenTime = -1;
 
 	private Laws() {}
 
@@ -173,6 +178,11 @@ public final class Laws {
 			removeAttr(p, EntityAttributes.GENERIC_SAFE_FALL_DISTANCE, FALL);
 			removeAttr(p, EntityAttributes.GENERIC_MAX_HEALTH, HEALTH);
 			removeAttr(p, EntityAttributes.GENERIC_ATTACK_DAMAGE, DAMAGE);
+			removeAttr(p, EntityAttributes.PLAYER_BLOCK_INTERACTION_RANGE, REACH);
+			removeAttr(p, EntityAttributes.PLAYER_ENTITY_INTERACTION_RANGE, REACH);
+			removeAttr(p, EntityAttributes.GENERIC_STEP_HEIGHT, STEP);
+			removeAttr(p, EntityAttributes.PLAYER_BLOCK_BREAK_SPEED, BREAK);
+			removeAttr(p, EntityAttributes.GENERIC_MOVEMENT_SPEED, MOVE);
 		}
 	}
 
@@ -894,7 +904,8 @@ public final class Laws {
 				.each(p -> {
 					PizdecState st = PizdecState.get(p.getServer());
 					if (!st.castleBuilt) return;
-					p.teleport(p.getServer().getOverworld(), st.cx + 16.5, st.cy, st.cz + 24.5, 0f, 0f);
+					Vec3d th = Castle.throneHall(st);
+					p.teleport(p.getServer().getOverworld(), th.x, th.y, th.z, 0f, 0f);
 				});
 
 		// ===== версия 1.2: магазин, казино, апгрейдер и ещё больше абсурда =====
@@ -1036,7 +1047,7 @@ public final class Laws {
 
 		law("address_check", "Проверка прописки", "у кого нет адреса — в тюрьму или на войну")
 				.each(p -> {
-					if (Address.valid(p.getServer(), p.getUuid())) return;
+					if (Address.registered(p.getServer(), p.getUuid())) return;
 					if (U.R.nextBoolean()) Jail.arrest(p, "проживание без прописки", 30);
 					else War.exile(p, "проживание без прописки");
 				});
@@ -1066,11 +1077,324 @@ public final class Laws {
 		law("vip_jail", "Платная тюрьма", "заключённые платят 2 бабла за каждую секунду отсидки");
 	}
 
+
+	// ===== версия 1.4: ещё 100 законов, ебанутых и не очень =====
+	static {
+		// --- эффекты (1-20)
+		law("rabbit", "Все — кролики", "прыгаем и бегаем, морковку не дают")
+				.tick((p, t) -> { eff(p, t, StatusEffects.JUMP_BOOST, 3); eff(p, t, StatusEffects.SPEED, 1); });
+		law("drunk", "Королевский банкет", "все немного пьяны. За счёт короля")
+				.tick((p, t) -> eff(p, t, StatusEffects.NAUSEA, 0));
+		law("sloth", "День ленивца", "двигаться медленно, копать ещё медленнее")
+				.tick((p, t) -> { eff(p, t, StatusEffects.SLOWNESS, 3); eff(p, t, StatusEffects.MINING_FATIGUE, 2); });
+		law("flash", "Все — флэши", "скорость света. Почти")
+				.tick((p, t) -> eff(p, t, StatusEffects.SPEED, 6));
+		law("turtle", "Черепаший марафон", "медленно, но броня как у черепахи")
+				.tick((p, t) -> { eff(p, t, StatusEffects.SLOWNESS, 4); eff(p, t, StatusEffects.RESISTANCE, 2); });
+		law("ghosts", "Призраки королевства", "все невидимые, но светятся. Логика короля")
+				.tick((p, t) -> { eff(p, t, StatusEffects.INVISIBILITY, 0); eff(p, t, StatusEffects.GLOWING, 0); });
+		law("miners_joy", "Шахтёрский праздник", "спешка и ночное зрение для всех")
+				.tick((p, t) -> { eff(p, t, StatusEffects.HASTE, 3); eff(p, t, StatusEffects.NIGHT_VISION, 0); });
+		law("night_terror", "Ночной кошмар", "темнота и фантом в подарок")
+				.each(p -> {
+					net.minecraft.entity.mob.PhantomEntity ph = U.spawn(EntityType.PHANTOM, p.getServerWorld(), p.getX(), p.getY() + 12, p.getZ());
+					if (ph != null) ph.setTarget(p);
+				})
+				.tick((p, t) -> eff(p, t, StatusEffects.DARKNESS, 0));
+		law("sugar_rush", "Сахарная лихорадка", "быстро, высоко и очень голодно")
+				.tick((p, t) -> { eff(p, t, StatusEffects.SPEED, 2); eff(p, t, StatusEffects.JUMP_BOOST, 2); eff(p, t, StatusEffects.HUNGER, 1); });
+		law("zen", "День дзена", "медленно и спокойно, здоровье восстанавливается")
+				.tick((p, t) -> { eff(p, t, StatusEffects.SLOWNESS, 1); eff(p, t, StatusEffects.REGENERATION, 1); });
+		law("absorption", "Королевская броня", "всем по 8 золотых сердечек")
+				.tick((p, t) -> { if (t == 1) p.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, PERIOD, 3)); });
+		law("hero", "Герой деревни", "жители дают скидки. Наконец-то")
+				.tick((p, t) -> eff(p, t, StatusEffects.HERO_OF_THE_VILLAGE, 2));
+		law("bad_omen", "Плохое предзнаменование", "зайдёшь в деревню — будет рейд")
+				.each(p -> p.addStatusEffect(new StatusEffectInstance(StatusEffects.BAD_OMEN, 20 * 60, 0)));
+		law("sea_power", "Сила моря", "под водой как дома")
+				.tick((p, t) -> { eff(p, t, StatusEffects.CONDUIT_POWER, 0); eff(p, t, StatusEffects.DOLPHINS_GRACE, 0); });
+		law("weak_day", "Хилый день", "все ослаблены. Драться бесполезно")
+				.tick((p, t) -> eff(p, t, StatusEffects.WEAKNESS, 1));
+		law("strength_day", "День силы", "все сильные. Драться опасно")
+				.tick((p, t) -> eff(p, t, StatusEffects.STRENGTH, 1));
+		law("springs", "Пружины в ботинках", "прыжок ×6 и падать не больно")
+				.tick((p, t) -> { eff(p, t, StatusEffects.JUMP_BOOST, 5); attr(p, EntityAttributes.GENERIC_SAFE_FALL_DISTANCE, FALL, 10.0); });
+		law("feathers", "Перья вместо костей", "все падают медленно")
+				.tick((p, t) -> eff(p, t, StatusEffects.SLOW_FALLING, 0));
+		law("royal_flu", "Королевская простуда", "каждые 10 секунд немного тошнит и травит")
+				.tick((p, t) -> { if (t % 200 == 0) p.addStatusEffect(new StatusEffectInstance(StatusEffects.POISON, 40, 0)); });
+		law("glow_night", "Светящийся вечер", "все светятся, чтобы стража видела")
+				.tick((p, t) -> eff(p, t, StatusEffects.GLOWING, 0));
+
+		// --- размеры и атрибуты (21-28)
+		law("size_mix", "Ассорти размеров", "каждому — случайный рост от крошки до великана")
+				.each(p -> attr(p, EntityAttributes.GENERIC_SCALE, SCALE, -0.7 + U.R.nextDouble() * 2.2));
+		law("long_arms", "Длинные руки закона", "достаёшь блоки и мобов вдвое дальше")
+				.tick((p, t) -> { attr(p, EntityAttributes.PLAYER_BLOCK_INTERACTION_RANGE, REACH, 1.0); attr(p, EntityAttributes.PLAYER_ENTITY_INTERACTION_RANGE, REACH, 1.0); });
+		law("short_arms", "Короткие руки", "дотянуться до чего-то — подвиг")
+				.tick((p, t) -> attr(p, EntityAttributes.PLAYER_BLOCK_INTERACTION_RANGE, REACH, -0.6));
+		law("no_stairs", "Ступеньки отменены", "все сами забираются на блоки")
+				.tick((p, t) -> attr(p, EntityAttributes.GENERIC_STEP_HEIGHT, STEP, 1.0));
+		law("fast_break", "Ускоренная добыча", "блоки ломаются втрое быстрее")
+				.tick((p, t) -> attr(p, EntityAttributes.PLAYER_BLOCK_BREAK_SPEED, BREAK, 2.0));
+		law("lead_boots", "Свинцовые ботинки", "тяжело и медленно")
+				.tick((p, t) -> { attr(p, EntityAttributes.GENERIC_MOVEMENT_SPEED, MOVE, -0.4); attr(p, EntityAttributes.GENERIC_GRAVITY, GRAVITY, 1.0); });
+		law("double_hp", "Здоровье по акции", "максимум здоровья ×2")
+				.tick((p, t) -> attr(p, EntityAttributes.GENERIC_MAX_HEALTH, HEALTH, 1.0));
+		law("mini_fast", "Карлики-бегуны", "маленькие и быстрые")
+				.tick((p, t) -> { attr(p, EntityAttributes.GENERIC_SCALE, SCALE, -0.6); eff(p, t, StatusEffects.SPEED, 2); });
+
+		// --- деньги (29-44)
+		law("rich_tax", "Налог на богатство", "у кого больше 500 — минус 20%")
+				.each(p -> { int b = Money.get(p); if (b > 500) Money.fine(p, b / 5, "налог на богатство"); });
+		law("poor_help", "Пособие для бедных", "у кого меньше 50 — плюс 40")
+				.each(p -> { if (Money.get(p) < 50) Money.give(p, 40, "пособие"); });
+		law("coin_rain", "Монетный дождь", "каждые 5 секунд всем по монетке")
+				.tick((p, t) -> { if (t % 100 == 0) Money.give(p, 1, "монетный дождь"); });
+		law("money_burn", "Бабло горит", "каждые 5 секунд сгорает 1 бабло с каждой сотни")
+				.tick((p, t) -> { if (t % 100 == 0 && Money.get(p) >= 100) Money.fine(p, Money.get(p) / 100, "бабло горит"); });
+		law("robin_hood", "Робин Гуд", "самый богатый отдаёт 20% самому бедному")
+				.start(s -> {
+					List<ServerPlayerEntity> ps = U.free(s);
+					if (ps.size() < 2) return;
+					ServerPlayerEntity rich = ps.stream().max(Comparator.comparingInt(Money::get)).get();
+					ServerPlayerEntity poor = ps.stream().min(Comparator.comparingInt(Money::get)).get();
+					int sum = Math.max(0, Money.get(rich)) / 5;
+					if (sum <= 0 || rich == poor) return;
+					Money.fine(rich, sum, "Робин Гуд");
+					Money.give(poor, sum, "Робин Гуд");
+				});
+		law("anti_lottery", "Лотерея наоборот", "один случайный неудачник теряет 100")
+				.start(s -> { List<ServerPlayerEntity> ps = U.free(s); if (!ps.isEmpty()) Money.fine(U.pick(ps), 100, "лотерея наоборот"); });
+		law("interest", "Проценты по вкладам", "+5% к балансу (до 100)")
+				.each(p -> { int b = Money.get(p); if (b > 0) Money.give(p, Math.min(100, Math.max(1, b / 20)), "проценты"); });
+		law("toll_jump", "Платные прыжки", "каждый прыжок — 1 бабло");
+		law("pay_sneak", "Платное приседание", "каждое приседание — 1 бабло");
+		law("tip_king", "Чаевые королю", "каждое сообщение в чате — 2 бабла королю");
+		law("fine_lottery", "Штрафная лотерея", "каждые 10 секунд случайный гражданин платит 10")
+				.world((s, t) -> { if (t % 200 == 0) { List<ServerPlayerEntity> ps = U.free(s); if (!ps.isEmpty()) Money.fine(U.pick(ps), 10, "штрафная лотерея"); } });
+		law("cashback", "Кэшбэк", "магазин возвращает 30% с каждой покупки");
+		law("shop_closed", "Магазин закрыт на учёт", "ничего не продаём. Приходите завтра");
+		law("casino_closed", "Казино опечатано налоговой", "играть нельзя. Налоговая сама играет");
+		law("jackpot_day", "День джекпота", "выигрыши в казино ×3");
+		law("mirror_money", "Перевёртыш", "у кого до 100 бабла — знак меняется. Долг стал деньгами и наоборот")
+				.each(p -> { int b = Money.get(p); if (b >= -100 && b <= 100 && b != 0) { Money.set(p, -b); U.bar(p, U.t("Баланс перевёрнут: " + (-b), Formatting.YELLOW)); } });
+
+		// --- предметы (45-58)
+		law("free_lunch", "Бесплатный обед", "всем по 3 хлеба")
+				.each(p -> give(p, new ItemStack(Items.BREAD, 3)));
+		law("free_tools", "Инструменты от короля", "всем по железной кирке")
+				.each(p -> give(p, new ItemStack(Items.IRON_PICKAXE)));
+		law("free_xp", "Опыт в бутылках", "всем по 5 пузырьков опыта")
+				.each(p -> give(p, new ItemStack(Items.EXPERIENCE_BOTTLE, 5)));
+		law("torch_tax", "Налог на факелы", "половина факелов изымается")
+				.each(p -> { PlayerInventory inv = p.getInventory(); for (int i = 0; i < inv.size(); i++) { ItemStack st = inv.getStack(i); if (st.isOf(Items.TORCH)) st.setCount(st.getCount() / 2); } });
+		law("snowball_war", "Снежная война", "всем по 16 снежков. Огонь!")
+				.each(p -> give(p, new ItemStack(Items.SNOWBALL, 16)));
+		law("easter", "Пасха", "всем по 8 яиц. Курицы в шоке")
+				.each(p -> give(p, new ItemStack(Items.EGG, 8)));
+		law("flower_gift", "Цветы от короля", "каждому — цветочек")
+				.each(p -> give(p, new ItemStack(U.pick(Items.POPPY, Items.DANDELION, Items.CORNFLOWER, Items.LILY_OF_THE_VALLEY, Items.WITHER_ROSE))));
+		law("arrow_rain", "Стрелы с неба", "каждые 3 секунды — стрела. Не стойте под небом")
+				.tick((p, t) -> {
+					if (t % 60 != 0) return;
+					net.minecraft.entity.projectile.ArrowEntity a = EntityType.ARROW.create(p.getServerWorld());
+					if (a == null) return;
+					a.refreshPositionAndAngles(p.getX() + U.between(-3, 3), p.getY() + 15, p.getZ() + U.between(-3, 3), 0f, 90f);
+					a.setVelocity(0, -1.5, 0);
+					p.getServerWorld().spawnEntity(a);
+				});
+		law("anvil_fall", "Наковальнепад", "каждые 8 секунд рядом падает наковальня")
+				.tick((p, t) -> {
+					if (t % 160 != 0) return;
+					net.minecraft.util.math.BlockPos pos = new net.minecraft.util.math.BlockPos(p.getBlockX() + U.between(-4, 4), p.getBlockY() + 15, p.getBlockZ() + U.between(-4, 4));
+					if (p.getServerWorld().getBlockState(pos).isAir()) net.minecraft.entity.FallingBlockEntity.spawnFromBlock(p.getServerWorld(), pos, Blocks.ANVIL.getDefaultState());
+				});
+		law("potato_rain", "Картофельный дождь", "с неба сыплется картошка")
+				.tick((p, t) -> { if (t % 40 == 0) p.getServerWorld().spawnEntity(new net.minecraft.entity.ItemEntity(p.getServerWorld(), p.getX() + U.between(-3, 3), p.getY() + 8, p.getZ() + U.between(-3, 3), new ItemStack(Items.POTATO))); });
+		law("inventory_tax", "Налог на инвентарь", "один случайный стак — в казну")
+				.each(p -> { List<String> l = Tax.confiscate(p, 1); if (!l.isEmpty()) U.bar(p, U.t("Изъято: " + l.get(0), Formatting.RED)); });
+		law("hands_swap", "Перепутанные руки", "каждые 10 секунд левая и правая рука меняются")
+				.tick((p, t) -> {
+					if (t % 200 != 0) return;
+					PlayerInventory inv = p.getInventory();
+					ItemStack main = inv.getStack(inv.selectedSlot), off = inv.getStack(40);
+					inv.setStack(inv.selectedSlot, off);
+					inv.setStack(40, main);
+				});
+		law("luxury_check", "Проверка на роскошь", "у кого больше 5 алмазов — лишние в казну")
+				.each(p -> {
+					PlayerInventory inv = p.getInventory();
+					int keep = 5;
+					for (int i = 0; i < inv.size(); i++) {
+						ItemStack st = inv.getStack(i);
+						if (!st.isOf(Items.DIAMOND) || Gui.isSpecial(st, "fake_diamond")) continue;
+						int k = Math.min(keep, st.getCount());
+						keep -= k;
+						st.setCount(k);
+					}
+				});
+		law("xp_rain", "Опытный дождь", "с неба падают шарики опыта")
+				.tick((p, t) -> { if (t % 30 == 0) p.getServerWorld().spawnEntity(new net.minecraft.entity.ExperienceOrbEntity(p.getServerWorld(), p.getX() + U.between(-2, 2), p.getY() + 3, p.getZ() + U.between(-2, 2), 3)); });
+		law("salute", "Королевский салют", "фейерверки в честь короля")
+				.tick((p, t) -> { if (t % 40 == 0) p.getServerWorld().spawnEntity(new net.minecraft.entity.projectile.FireworkRocketEntity(p.getServerWorld(), p.getX() + U.between(-5, 5), p.getY(), p.getZ() + U.between(-5, 5), new ItemStack(Items.FIREWORK_ROCKET))); });
+
+		// --- мобы (59-71)
+		law("goats", "Козлиное нашествие", "к каждому пришли два козла")
+				.each(p -> { for (int i = 0; i < 2; i++) U.spawnNear(EntityType.GOAT, p, 5); });
+		law("llamas", "Ламы-дипломаты", "к каждому прибыла делегация лам")
+				.each(p -> { for (int i = 0; i < 2; i++) U.spawnNear(EntityType.LLAMA, p, 5); });
+		law("frog_rain", "Лягушачий дождь", "с неба падают лягушки")
+				.tick((p, t) -> { if (t % 80 == 0) U.spawn(EntityType.FROG, p.getServerWorld(), p.getX() + U.between(-3, 3), p.getY() + 10, p.getZ() + U.between(-3, 3)); });
+		law("slime_party", "Вечеринка слизней", "к каждому — три слизня")
+				.each(p -> { for (int i = 0; i < 3; i++) U.spawnNear(EntityType.SLIME, p, 6); });
+		law("wolves", "Волки на страже", "каждому по два волка. Приручайте")
+				.each(p -> { for (int i = 0; i < 2; i++) U.spawnNear(EntityType.WOLF, p, 5); });
+		law("zombie_parade", "Парад зомби", "по улицам маршируют зомби")
+				.each(p -> { for (int i = 0; i < 3; i++) { ZombieEntity z = U.spawnNear(EntityType.ZOMBIE, p, 10); if (z != null) { z.equipStack(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); z.setCustomName(U.t("Участник парада", Formatting.GREEN)); } } });
+		law("skeleton_band", "Скелеты-музыканты", "к каждому пришли барабанщики")
+				.each(p -> { for (int i = 0; i < 2; i++) { net.minecraft.entity.mob.SkeletonEntity sk = U.spawnNear(EntityType.SKELETON, p, 10); if (sk != null) sk.setCustomName(U.t("Барабанщик", Formatting.WHITE)); } })
+				.tick((p, t) -> { if (t % 10 == 0) U.sound(p, SoundEvents.BLOCK_NOTE_BLOCK_BASEDRUM, 0.6f, 1f); });
+		law("rally", "Митинг жителей", "к каждому пришли митингующие")
+				.each(p -> { for (int i = 0; i < 4; i++) { VillagerEntity v = U.spawnNear(EntityType.VILLAGER, p, 6); if (v != null) { v.setCustomName(U.t(U.pick("За снижение налогов!", "Долой карету!", "Хотим шаурму!", "Король, ты кто?"), Formatting.YELLOW)); v.setCustomNameVisible(true); } } });
+		law("cat_army", "Кошачья армия", "к каждому — четыре кота")
+				.each(p -> { for (int i = 0; i < 4; i++) U.spawnNear(EntityType.CAT, p, 4); });
+		law("bat_cloud", "Облако летучих мышей", "шпионы короля размножились")
+				.each(p -> { for (int i = 0; i < 6; i++) U.spawn(EntityType.BAT, p.getServerWorld(), p.getX(), p.getY() + 2, p.getZ()); });
+		law("hug_golem", "Голем-обнимашка", "к каждому приставлен железный голем")
+				.each(p -> { net.minecraft.entity.passive.IronGolemEntity g = U.spawnNear(EntityType.IRON_GOLEM, p, 4); if (g != null) { g.setCustomName(U.t("Обнимашка", Formatting.LIGHT_PURPLE)); g.setCustomNameVisible(true); } });
+		law("witch_week", "Неделя ведьмы", "к каждому пришла тёща короля")
+				.each(p -> { net.minecraft.entity.mob.WitchEntity wt = U.spawnNear(EntityType.WITCH, p, 8); if (wt != null) { wt.setCustomName(U.t("Тёща короля", Formatting.DARK_PURPLE)); wt.setCustomNameVisible(true); } });
+		law("patrol", "Патруль разбойников", "по округе гуляют разбойники")
+				.each(p -> { for (int i = 0; i < 2; i++) U.spawnNear(EntityType.PILLAGER, p, 12); });
+
+		// --- перемещения (72-79)
+		law("step_aside", "Шаг вправо", "всех переносит на 10 блоков в случайную сторону")
+				.each(p -> tpSurface(p, 10));
+		law("to_square", "Все на площадь!", "все граждане доставлены во двор замка")
+				.each(p -> { PizdecState st = PizdecState.get(p.getServer()); if (!st.castleBuilt) return; Vec3d c = Castle.courtyard(st); p.teleport(p.getServer().getOverworld(), c.x, c.y, c.z, 0f, 0f); });
+		law("prison_tour", "Экскурсия по тюрьме", "всех привезли во двор тюрьмы. Посмотреть и ужаснуться")
+				.each(p -> { PizdecState st = PizdecState.get(p.getServer()); if (!st.prisonBuilt) return; Vec3d c = Prison.yard(st); p.teleport(p.getServer().getOverworld(), c.x, c.y, c.z, 0f, 0f); });
+		law("skyscraper", "Небоскрёб", "всех на 25 блоков вверх, перья прилагаются")
+				.each(p -> { p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 20 * 20, 0)); p.teleport(p.getServerWorld(), p.getX(), p.getY() + 25, p.getZ(), p.getYaw(), p.getPitch()); });
+		law("rocket", "Ракетный старт", "каждые 10 секунд — запуск в небо")
+				.tick((p, t) -> { if (t % 200 == 0) { p.addVelocity(0, 1.3, 0); p.velocityModified = true; p.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 100, 0)); } });
+		law("carousel", "Карусель", "каждые 2 секунды всех разворачивает на 90°")
+				.tick((p, t) -> { if (t % 40 == 0) p.teleport(p.getServerWorld(), p.getX(), p.getY(), p.getZ(), p.getYaw() + 90f, p.getPitch()); });
+		law("go_north", "Все на север!", "ветер дует строго на север")
+				.tick((p, t) -> { if (t % 20 == 0) { p.addVelocity(0, 0.1, -0.5); p.velocityModified = true; } });
+		law("freeze_time", "Время остановлено", "солнце замерло. Король так решил")
+				.start(s -> frozenTime = s.getOverworld().getTimeOfDay())
+				.world((s, t) -> { if (frozenTime >= 0) s.getOverworld().setTimeOfDay(frozenTime); })
+				.end(s -> frozenTime = -1);
+
+		// --- правила, за нарушение — тюрьма (80-100)
+		law("no_numbers", "Цифры запрещены", "в чате — только буквы");
+		law("short_msgs", "Краткость — сестра таланта", "сообщения длиннее 20 символов — тюрьма");
+		law("long_msgs", "Многословие обязательно", "сообщения короче 15 символов — тюрьма");
+		law("say_please", "Вежливость обязательна", "в каждом сообщении — «пожалуйста»");
+		law("no_king_word", "Короля упоминать запрещено", "всуе — тюрьма");
+		law("only_questions", "Только вопросы", "каждое сообщение должно заканчиваться «?»");
+		law("hold_bread", "Держи хлеб", "хлеб в руке — признак благонадёжности")
+				.tick(holdItem(Items.BREAD, "хлеба"));
+		law("hold_torch", "Светоч знаний", "держи факел в руке")
+				.tick(holdItem(Items.TORCH, "факела"));
+		law("no_shield", "Щиты запрещены", "щит в левой руке — тюрьма")
+				.tick(rule(40, p -> p.getOffHandStack().isOf(Items.SHIELD), "прятался за щитом"));
+		law("no_bows", "Луки вне закона", "лук или арбалет в руке — тюрьма")
+				.tick(rule(40, p -> p.getMainHandStack().isOf(Items.BOW) || p.getMainHandStack().isOf(Items.CROSSBOW), "держал лук"));
+		law("no_flowers", "Цветы запрещены", "найдут цветок в инвентаре — тюрьма")
+				.tick(rule(100, p -> p.getInventory().contains(ItemTags.SMALL_FLOWERS), "хранил цветы"));
+		law("dungeons_closed", "Подземелья закрыты", "ниже 50 блоков спускаться нельзя")
+				.tick(rule(40, p -> p.getServerWorld() == p.getServer().getOverworld() && p.getY() < 50, "залез в подземелье"));
+		law("curfew", "Комендантский час", "ночью под открытым небом — тюрьма")
+				.tick(rule(60, p -> !p.getServerWorld().isDay() && p.getServerWorld().isSkyVisible(p.getBlockPos().up()), "гулял ночью"));
+		law("helmet_rule", "Каска обязательна", "без шлема — тюрьма")
+				.tick(rule(60, p -> p.getEquippedStack(EquipmentSlot.HEAD).isEmpty(), "ходил без каски"));
+		law("no_sand", "Песок — собственность короля", "стоять на песке нельзя")
+				.tick(rule(20, p -> p.isOnGround() && stateUnder(p).isIn(BlockTags.SAND), "топтал королевский песок"));
+		law("no_crafting", "Крафт запрещён", "верстак опечатан");
+		law("no_furnace", "Печи опечатаны", "жарить ничего нельзя");
+		law("no_chests", "Сундуки опечатаны", "открыл — сел");
+		law("no_beds", "Сон запрещён", "кто ляжет в кровать — проснётся в тюрьме");
+		law("no_boats", "Лодки конфискованы", "сидеть в лодке — тюрьма")
+				.tick(rule(40, p -> p.getVehicle() instanceof net.minecraft.entity.vehicle.BoatEntity, "катался на лодке"));
+		law("no_riding", "Верховая езда — для дворян", "простолюдину на лошади — тюрьма")
+				.tick(rule(40, p -> !Ranks.noble(p) && p.getVehicle() instanceof net.minecraft.entity.passive.AbstractHorseEntity, "ездил верхом без дворянства"));
+
+		// --- планы (101-106)
+		law("quota_walk", "Норма шагов", "пройди 200 блоков за указ")
+				.end(quota("walk", 200, "шаги"));
+		law("quota_bow10", "Десять поклонов", "присядь 10 раз в честь короля")
+				.end(quota("bows", 10, "поклоны"));
+		law("stakhanov", "Стахановец", "сломай 50 блоков за указ")
+				.end(quota("breaks", 50, "добыча"));
+		law("three_heads", "Три головы", "убей трёх мобов за указ")
+				.end(quota("kills", 3, "убийства"));
+		law("chatterbox", "Три сообщения", "напиши в чат трижды")
+				.end(quota("chats", 3, "болтовня"));
+		law("jump30", "Тридцать прыжков", "напрыгай 30 раз")
+				.end(quota("jumps", 30, "прыжки"));
+
+		// --- звания, работа, отель, суд, война (107-118)
+		law("rank_gift", "Король раздаёт звания", "один случайный гражданин повышен на ступень")
+				.start(s -> { List<ServerPlayerEntity> ps = U.free(s); if (ps.isEmpty()) return; ServerPlayerEntity p = U.pick(ps); if (Ranks.get(p) < Ranks.NOBLE) { Ranks.set(p, Ranks.get(p) + 1); U.say(s, U.t("👑 " + p.getName().getString() + " повышен до «" + Ranks.name(p) + "»", Formatting.GOLD)); } });
+		law("demotion", "Разжалование", "один случайный гражданин понижен на ступень")
+				.start(s -> { List<ServerPlayerEntity> ps = U.free(s); if (ps.isEmpty()) return; ServerPlayerEntity p = U.pick(ps); if (Ranks.get(p) > 0) { Ranks.set(p, Ranks.get(p) - 1); U.say(s, U.t("👑 " + p.getName().getString() + " разжалован до «" + Ranks.name(p) + "»", Formatting.RED)); } });
+		law("noble_tax", "Налог на дворянство", "дворяне платят 50 за благородство")
+				.each(p -> { if (Ranks.noble(p)) Money.fine(p, 50, "налог на дворянство"); });
+		law("job_bonus", "Премия работникам", "все трудоустроенные получают +40")
+				.each(p -> { if (Jobs.jobOf(p) != null) Money.give(p, 40, "премия"); });
+		law("mass_firing", "Массовые увольнения", "все уволены. Кризис")
+				.each(p -> Jobs.quit(p));
+		law("hotel_free", "Отель бесплатно", "номера в отеле сейчас бесплатные");
+		law("hotel_sale", "Скидки в отеле", "номера за полцены");
+		law("eviction", "Выселение", "все постояльцы отеля выселены")
+				.start(Hotel::evictAll);
+		law("court_lottery", "Судебная лотерея", "один случайный гражданин идёт под суд «для проверки»")
+				.start(s -> { List<ServerPlayerEntity> ps = U.free(s); if (!ps.isEmpty()) Jail.arrest(U.pick(ps), "судебная лотерея", 15); });
+		law("peace_talks", "Мирные переговоры", "все солдаты возвращаются с войны")
+				.start(War::releaseAll);
+		law("prison_break", "Побег из тюрьмы", "все заключённые сбежали! Штраф 20 за побег")
+				.start(s -> { for (ServerPlayerEntity p : new ArrayList<>(s.getPlayerManager().getPlayerList())) if (Jail.jailed(p) && !Court.inTrial(p)) { Jail.release(p, "массовый побег"); Money.fine(p, 20, "побег"); } });
+		law("housing_aid", "Субсидия на жильё", "у кого есть прописка — +25")
+				.each(p -> { if (Address.registered(p.getServer(), p.getUuid())) Money.give(p, 25, "субсидия на жильё"); });
+
+		// --- просто абсурд (119-128)
+		law("rename_mobs", "День переименования", "все мобы вокруг получили новые имена")
+				.each(p -> {
+					for (net.minecraft.entity.mob.MobEntity m : p.getServerWorld().getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class, p.getBoundingBox().expand(32), m -> !m.hasCustomName() && m.getCommandTags().isEmpty())) {
+						m.setCustomName(U.t(U.pick("Гена", "Валера", "Зинаида", "Толик", "Аркадий", "Бабушка", "Шнырь", "Пельмень", "Сосед")));
+					}
+				});
+		law("jeb", "Радужный день", "все овцы вокруг стали радужными")
+				.each(p -> {
+					for (SheepEntity sh : p.getServerWorld().getEntitiesByClass(SheepEntity.class, p.getBoundingBox().expand(32), x -> !x.hasCustomName())) sh.setCustomName(U.t("jeb_"));
+				});
+		law("radio", "Королевское радио", "играет королевская музыка")
+				.tick((p, t) -> { if (t % 6 == 0) U.sound(p, SoundEvents.BLOCK_NOTE_BLOCK_HARP, 0.5f, 0.5f + ((t / 6) % 8) * 0.2f); });
+		law("bells", "Колокольный звон", "колокола звонят каждые 3 секунды")
+				.tick((p, t) -> { if (t % 60 == 0) U.sound(p, SoundEvents.BLOCK_BELL_USE, 1f, 0.8f + U.R.nextFloat() * 0.4f); });
+		law("propaganda", "Пропаганда", "король напоминает, какой он хороший")
+				.tick((p, t) -> { if (t % 200 == 0) U.title(p, U.t(U.pick("КОРОЛЬ — ЛУЧШИЙ", "НАЛОГИ — ЭТО ЛЮБОВЬ", "КАРЕТА ЗАБОТИТСЯ О ТЕБЕ", "ТЮРЬМА — ЭТО ОТДЫХ", "ВОЙНА — ЭТО МИР"), Formatting.GOLD, Formatting.BOLD), U.t("— Министерство правды", Formatting.GRAY)); });
+		law("fake_alarm", "Учебная тревога", "НАЛОГОВАЯ! (шутка)")
+				.each(p -> { U.title(p, U.t("💸 НАЛОГОВАЯ 💸", Formatting.DARK_RED, Formatting.BOLD), U.t("…учебная тревога. Расслабьтесь", Formatting.GRAY)); U.sound(p, SoundEvents.EVENT_RAID_HORN, 2f, 1f); });
+		law("forbes", "Список Forbes", "король оглашает самых богатых")
+				.start(s -> { List<ServerPlayerEntity> ps = new ArrayList<>(U.players(s)); ps.sort(Comparator.<ServerPlayerEntity>comparingInt(Money::get).reversed()); for (int i = 0; i < Math.min(3, ps.size()); i++) U.say(s, U.t("💰 " + (i + 1) + ". " + ps.get(i).getName().getString() + " — " + Money.get(ps.get(i)) + " бабла", Formatting.GOLD)); });
+		law("census", "Перепись населения", "король узнаёт, кто кем работает")
+				.start(s -> { for (ServerPlayerEntity p : U.players(s)) { Jobs.Job j = Jobs.jobOf(p); U.say(s, U.t("📋 " + p.getName().getString() + ": " + Ranks.name(p) + ", " + (j == null ? "безработный" : j.name()), Formatting.GRAY)); } });
+		law("sunset", "Вечный закат", "король любит закаты")
+				.start(s -> s.getOverworld().setTimeOfDay(12500));
+		law("weather_chaos", "Погодный хаос", "погода меняется каждые 10 секунд")
+				.world((s, t) -> { if (t % 200 == 1) { int r = U.R.nextInt(3); s.getOverworld().setWeather(r == 0 ? 600 : 0, r == 0 ? 0 : 600, r != 0, r == 2); } });
+	}
+
 	// ------------------------------------------------------------------ события от главного класса
 
 	public static void onJump(ServerPlayerEntity p) {
 		inc("jumps", p);
 		lastJump.put(p.getUuid(), lawTicks);
+		if (is("toll_jump")) Money.fine(p, 1, "платный прыжок");
 		if (is("no_jump")) v(p, "прыгнул без лицензии");
 	}
 
@@ -1098,6 +1422,18 @@ public final class Laws {
 	public static boolean allowUse(ServerPlayerEntity p, BlockState b, ItemStack inHand) {
 		if (is("no_doors") && (b.isIn(BlockTags.DOORS) || b.isIn(BlockTags.TRAPDOORS) || b.isIn(BlockTags.FENCE_GATES))) {
 			v(p, "открыл национализированную дверь");
+			return false;
+		}
+		if (is("no_crafting") && b.isOf(Blocks.CRAFTING_TABLE)) {
+			v(p, "крафтил без разрешения");
+			return false;
+		}
+		if (is("no_furnace") && (b.isOf(Blocks.FURNACE) || b.isOf(Blocks.BLAST_FURNACE) || b.isOf(Blocks.SMOKER))) {
+			v(p, "сорвал пломбу с печи");
+			return false;
+		}
+		if (is("no_chests") && (b.isOf(Blocks.CHEST) || b.isOf(Blocks.BARREL) || b.isOf(Blocks.TRAPPED_CHEST))) {
+			v(p, "вскрыл опечатанный сундук");
 			return false;
 		}
 		if (is("no_build") && inHand.getItem() instanceof BlockItem) {
@@ -1140,6 +1476,13 @@ public final class Laws {
 		else if (is("whisper") && !text.equals(text.toLowerCase())) crime = "повысил голос";
 		else if (is("no_o") && text.toLowerCase().matches(".*[оo].*")) crime = "использовал букву «о»";
 		else if (is("chat_paid") && !Money.pay(p, 5, "свободу слова")) crime = "говорил бесплатно";
+		else if (is("no_numbers") && text.matches(".*[0-9].*")) crime = "использовал цифры";
+		else if (is("short_msgs") && text.length() > 20) crime = "болтал слишком длинно";
+		else if (is("long_msgs") && text.length() < 15) crime = "говорил слишком коротко";
+		else if (is("say_please") && !text.toLowerCase().contains("пожалуйста")) crime = "не сказал «пожалуйста»";
+		else if (is("no_king_word") && text.toLowerCase().contains("корол")) crime = "упоминал короля всуе";
+		else if (is("only_questions") && !text.trim().endsWith("?")) crime = "сказал что-то утвердительно";
+		if (crime == null && is("tip_king")) Money.fine(p, 2, "чаевые королю");
 
 		if (crime != null) {
 			String c = crime;
@@ -1198,12 +1541,18 @@ public final class Laws {
 				float dy = yWas == null ? 0f : p.getYaw() - yWas;
 				dy = ((dy % 360f) + 540f) % 360f - 180f;
 				yawDelta.put(id, dy);
+				Vec3d dl = lastDelta.get(id);
+				if (dl != null) {
+					int m = (int) Math.round(Math.sqrt(dl.x * dl.x + dl.z * dl.z));
+					if (m > 0 && m < 12) counters.computeIfAbsent("walk", k -> new HashMap<>()).merge(id, m, Integer::sum);
+				}
 			}
 			boolean sn = p.isSneaking();
 			Boolean before = wasSneaking.put(id, sn);
 			if (sn && (before == null || !before)) {
 				lastSneak.put(id, lawTicks);
 				inc("bows", p);
+				if (is("pay_sneak") && !Jail.busy(p)) Money.fine(p, 1, "платное приседание");
 			}
 		}
 		if (current == null) return;

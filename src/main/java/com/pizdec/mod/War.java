@@ -182,7 +182,8 @@ public final class War {
 			U.say(s, U.t("⚔ " + p.getName().getString() + " пал смертью храбрых. Похороны за счёт государства.", Formatting.GRAY));
 			return;
 		}
-		p.teleport(s.getOverworld(), st.cx + 16.5, st.cy, st.cz - 3.5, 180f, 0f);
+		net.minecraft.util.math.Vec3d g = Castle.gateOutside(st);
+		p.teleport(s.getOverworld(), g.x, g.y, g.z, 180f, 0f);
 		Money.give(p, 100, "ветеранские");
 		U.title(p, U.t("🎖 ДЕМОБИЛИЗОВАН", Formatting.GOLD, Formatting.BOLD), U.t("+100 бабла ветеранских", Formatting.YELLOW));
 		U.say(s, U.t("🎖 " + p.getName().getString() + " вернулся с войны живым. Герой!", Formatting.GOLD));
@@ -194,6 +195,16 @@ public final class War {
 		if (!exiled(p)) return false;
 		end(p, true);
 		return true;
+	}
+
+	/** Мирные переговоры: все возвращаются. */
+	public static void releaseAll(MinecraftServer s) {
+		for (ServerPlayerEntity p : new ArrayList<>(s.getPlayerManager().getPlayerList())) {
+			if (exiled(p)) end(p, false);
+		}
+		PizdecState st = PizdecState.get(s);
+		st.exiles.clear();
+		st.markDirty();
 	}
 
 	public static void releaseByAdmin(ServerPlayerEntity p) {
