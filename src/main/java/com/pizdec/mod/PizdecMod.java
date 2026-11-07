@@ -988,7 +988,7 @@ public class PizdecMod implements ModInitializer {
 						.then(CommandManager.argument("player", EntityArgumentType.player())
 								.then(CommandManager.argument("value", IntegerArgumentType.integer(0, 100)).executes(c -> {
 									ServerPlayerEntity t = EntityArgumentType.getPlayer(c, "player");
-									SecretPolice.set(t.getServer(), t.getUuid(), IntegerArgumentType.getInteger(c, "value"));
+									SecretPolice.setLevel(t.getServer(), t.getUuid(), IntegerArgumentType.getInteger(c, "value"));
 									SecretPolice.note(t.getServer(), t.getUuid(), "подозрительность выставлена админом");
 									return 1;
 								}))))

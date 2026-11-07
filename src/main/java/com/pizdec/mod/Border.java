@@ -502,7 +502,7 @@ public final class Border {
 					st.abroad.put(p.getUuid(), -1L);
 					st.markDirty();
 					SecretPolice.note(s, p.getUuid(), "не вернулся из-за границы (невозвращенец)");
-					SecretPolice.set(s, p.getUuid(), SecretPolice.get(p) + 30);
+					SecretPolice.setLevel(s, p.getUuid(), SecretPolice.get(p) + 30);
 					U.say(s, U.t("🚨 Гражданин " + p.getName().getString() + " не вернулся из-за границы. Объявлен невозвращенцем. "
 							+ "По возвращении — тюрьма.", Formatting.DARK_RED));
 					News.breaking(s, "Предатель " + p.getName().getString() + " остался за границей. Народ негодует.");

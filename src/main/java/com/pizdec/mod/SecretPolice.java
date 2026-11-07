@@ -87,7 +87,7 @@ public final class SecretPolice {
 		return get(p.getServer(), p.getUuid());
 	}
 
-	public static void set(MinecraftServer s, UUID id, int v) {
+	public static void setLevel(MinecraftServer s, UUID id, int v) {
 		PizdecState st = PizdecState.get(s);
 		st.suspicion.put(id, Math.max(0, Math.min(100, v)));
 		st.markDirty();
@@ -99,7 +99,7 @@ public final class SecretPolice {
 		MinecraftServer s = p.getServer();
 		if (n > 0 && Laws.is("vigilance_week")) n *= 2;
 		int before = get(s, p.getUuid());
-		set(s, p.getUuid(), before + n);
+		setLevel(s, p.getUuid(), before + n);
 		note(s, p.getUuid(), why + " (" + (n > 0 ? "+" : "") + n + ")");
 		int now = get(s, p.getUuid());
 		if (before < WATCH && now >= WATCH) {
@@ -466,12 +466,12 @@ public final class SecretPolice {
 		int score = in.score - (member(p) ? 1 : 0);
 		Vec3d out = lobby(st);
 		if (score >= 5) {
-			set(s, p.getUuid(), 25);
+			setLevel(s, p.getUuid(), 25);
 			note(s, p.getUuid(), "допрос: отпущен (" + score + "/6)");
 			p.teleport(s.getOverworld(), out.x, out.y, out.z, 90f, 0f);
 			U.msg(p, U.t("🕶 Сухов: «Свободны. Пока. Мы вам перезвоним.»", Formatting.GREEN));
 		} else if (score >= 3) {
-			set(s, p.getUuid(), 30);
+			setLevel(s, p.getUuid(), 30);
 			st.informants.add(p.getUuid());
 			st.markDirty();
 			note(s, p.getUuid(), "допрос: завербован осведомителем (" + score + "/6)");
@@ -551,7 +551,7 @@ public final class SecretPolice {
 		PizdecState st = PizdecState.get(s);
 		st.underground.remove(id);
 		st.markDirty();
-		set(s, id, get(s, id) + 40);
+		setLevel(s, id, get(s, id) + 40);
 		note(s, id, "участник подполья " + UNDERGROUND + ": " + how);
 		ServerPlayerEntity p = s.getPlayerManager().getPlayer(id);
 		String name = st.names.getOrDefault(id, "неизвестный");
@@ -642,7 +642,7 @@ public final class SecretPolice {
 			for (ServerPlayerEntity p : U.players(s)) {
 				int v = get(p);
 				int floor = member(p) ? 15 : 0;
-				if (v > floor) set(s, p.getUuid(), v - 1);
+				if (v > floor) setLevel(s, p.getUuid(), v - 1);
 			}
 		}
 		// гранты подполью из-за рубежа — раз в 5 минут
