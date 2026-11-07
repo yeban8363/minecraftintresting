@@ -204,10 +204,10 @@ public class PizdecState extends PersistentState {
 		nbt.put("names", n);
 
 		NbtCompound h = new NbtCompound();
-		hotel.forEach((room, r) -> {
+		hotel.forEach((room, rent) -> {
 			NbtCompound c = new NbtCompound();
-			c.putString("who", r.who.toString());
-			c.putLong("until", r.until);
+			c.putString("who", rent.who.toString());
+			c.putLong("until", rent.until);
 			h.put(String.valueOf(room), c);
 		});
 		nbt.put("hotel", h);
