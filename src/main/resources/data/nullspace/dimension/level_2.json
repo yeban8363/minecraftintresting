@@ -1,0 +1,6 @@
+{
+  "type": "nullspace:level_2",
+  "generator": {
+    "type": "nullspace:parking"
+  }
+}

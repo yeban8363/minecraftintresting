@@ -38,6 +38,9 @@ import java.util.UUID;
  * Стаб. < 50:  кто-то бежит к тебе со спины — и шаги обрываются вплотную.
  * Стаб. < 35:  шёпот твоего ника в чате; «<ты> присоединился к игре».
  *
+ * Уровень 2:   фары включаются за спиной, сигнализации срабатывают цепочкой,
+ *              у пустой машины заводится двигатель.
+ *
  * Здесь никого нет. Всё это — ты и пространство.
  */
 public final class AtmosphereDirector {
@@ -56,6 +59,11 @@ public final class AtmosphereDirector {
 		Vec3d runPos = Vec3d.ZERO;
 		Vec3d runStep = Vec3d.ZERO;
 		long runSilenceAt;
+		// звуки, запланированные на будущее (цепочка сигнализаций и т.п.)
+		final Deque<Scheduled> queue = new ArrayDeque<>();
+	}
+
+	private record Scheduled(long at, Vec3d pos, SoundEvent sound, float volume, float pitch) {
 	}
 
 	private static final Map<UUID, State> STATES = new HashMap<>();
@@ -108,6 +116,12 @@ public final class AtmosphereDirector {
 		boolean moving = last != null && last.squaredDistanceTo(pos) > 0.0025;
 		s.trail.addLast(pos);
 		while (s.trail.size() > ECHO_DELAY + 1) s.trail.removeFirst();
+
+		// --- запланированные звуки ---
+		while (!s.queue.isEmpty() && s.queue.peekFirst().at() <= now) {
+			Scheduled q = s.queue.pollFirst();
+			playAt(player, q.sound(), q.pos(), q.volume(), q.pitch());
+		}
 
 		// --- бегущие шаги идут даже сквозь тишину: тишина — их конец ---
 		if (s.runLeft > 0 && now % 5 == 0) {
@@ -175,6 +189,11 @@ public final class AtmosphereDirector {
 			return;
 		}
 
+		if (player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_2 && random.nextInt(100) < 35) {
+			parkingEvent(player, s, random, stability, now);
+			return;
+		}
+
 		int basic = random.nextInt(100);
 		if (basic < 35) {
 			s.stepsUntil = now + 20L * (6 + random.nextInt(10));
@@ -193,6 +212,91 @@ public final class AtmosphereDirector {
 			startSilence(player, s, 20 * (15 + random.nextInt(25)));
 		}
 		// иначе — ничего. Это тоже событие.
+	}
+
+	// ---------------- парковка ----------------
+
+	/**
+	 * События Уровня 2. В машинах никого нет, но:
+	 *  - за спиной у пустых машин включаются фары;
+	 *  - сигнализации срабатывают цепочкой — от дальней машины к ближней;
+	 *  - у соседней машины заводится двигатель.
+	 */
+	private static void parkingEvent(ServerPlayerEntity player, State s, Random random, float stability, long now) {
+		ServerWorld world = player.getServerWorld();
+		int roll = random.nextInt(100);
+		if (roll < 40 && headlightsBehind(player, world)) return;
+		if (roll < 75 && stability < 80 && alarmChain(player, world, s, now)) return;
+		BlockPos car = nearestCarLight(player, world, 24);
+		if (car != null) playAt(player, ModSounds.ENGINE_IDLE, Vec3d.ofCenter(car), 1.2f, 0.9f + random.nextFloat() * 0.2f);
+	}
+
+	private static boolean isCarLight(BlockState state) {
+		return state.isOf(ModBlocks.HEADLIGHT) || state.isOf(ModBlocks.HEADLIGHT_OFF) || state.isOf(ModBlocks.TAILLIGHT);
+	}
+
+	private static boolean headlightsBehind(ServerPlayerEntity player, ServerWorld world) {
+		Vec3d look = player.getRotationVec(1.0f);
+		BlockPos c = player.getBlockPos();
+		int switched = 0;
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		for (int dx = -20; dx <= 20 && switched < 4; dx++) {
+			for (int dz = -20; dz <= 20 && switched < 4; dz++) {
+				p.set(c.getX() + dx, c.getY(), c.getZ() + dz);
+				if (!world.getBlockState(p).isOf(ModBlocks.HEADLIGHT_OFF)) continue;
+				Vec3d to = Vec3d.ofCenter(p).subtract(player.getEyePos()).normalize();
+				if (look.dotProduct(to) > -0.1) continue;
+				world.setBlockState(p, ModBlocks.HEADLIGHT.getDefaultState());
+				if (switched == 0) playAt(player, ModSounds.HEADLIGHT_CLICK, Vec3d.ofCenter(p), 0.9f, 1.0f);
+				switched++;
+			}
+		}
+		return switched > 0;
+	}
+
+	private static boolean alarmChain(ServerPlayerEntity player, ServerWorld world, State s, long now) {
+		BlockPos c = player.getBlockPos();
+		Map<Long, BlockPos> cars = new HashMap<>();
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		for (int dx = -32; dx <= 32; dx++) {
+			for (int dz = -32; dz <= 32; dz++) {
+				p.set(c.getX() + dx, c.getY(), c.getZ() + dz);
+				if (isCarLight(world.getBlockState(p))) {
+					long key = (((long) Math.floorDiv(p.getX(), 4)) << 32) ^ (Math.floorDiv(p.getZ(), 6) & 0xFFFFFFFFL);
+					cars.putIfAbsent(key, p.toImmutable());
+				}
+			}
+		}
+		java.util.List<BlockPos> list = new java.util.ArrayList<>(cars.values());
+		list.removeIf(b -> b.getSquaredDistance(c) < 16);
+		if (list.size() < 2) return false;
+		list.sort(java.util.Comparator.comparingDouble((BlockPos b) -> b.getSquaredDistance(c)).reversed());
+		int n = Math.min(6, list.size());
+		int step = Math.max(1, list.size() / n);
+		for (int i = 0; i < n; i++) {
+			BlockPos car = list.get(Math.min(list.size() - 1, i * step));
+			s.queue.addLast(new Scheduled(now + i * 28L, Vec3d.ofCenter(car), ModSounds.CAR_ALARM, 1.6f, 0.95f + i * 0.02f));
+		}
+		return true;
+	}
+
+	private static BlockPos nearestCarLight(ServerPlayerEntity player, ServerWorld world, int radius) {
+		BlockPos c = player.getBlockPos();
+		BlockPos best = null;
+		double bestD = Double.MAX_VALUE;
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		for (int dx = -radius; dx <= radius; dx++) {
+			for (int dz = -radius; dz <= radius; dz++) {
+				p.set(c.getX() + dx, c.getY(), c.getZ() + dz);
+				if (!isCarLight(world.getBlockState(p))) continue;
+				double d = p.getSquaredDistance(c);
+				if (d > 9 && d < bestD) {
+					bestD = d;
+					best = p.toImmutable();
+				}
+			}
+		}
+		return best;
 	}
 
 	/** Шаги начинаются в 18 блоках за спиной и бегут к тебе. Последний — вплотную. */
@@ -215,11 +319,17 @@ public final class AtmosphereDirector {
 	}
 
 	private static SoundEvent stepsSound(ServerPlayerEntity player) {
-		return player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_1 ? ModSounds.WET_STEPS : ModSounds.STEPS_BEHIND_WALL;
+		var key = player.getWorld().getRegistryKey();
+		if (key == NullspaceDimensions.LEVEL_1) return ModSounds.WET_STEPS;
+		if (key == NullspaceDimensions.LEVEL_2) return ModSounds.CONCRETE_STEPS;
+		return ModSounds.STEPS_BEHIND_WALL;
 	}
 
 	private static SoundEvent distantSound(ServerPlayerEntity player) {
-		return player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_1 ? ModSounds.WATER_DISTANT : ModSounds.DISTANT;
+		var key = player.getWorld().getRegistryKey();
+		if (key == NullspaceDimensions.LEVEL_1) return ModSounds.WATER_DISTANT;
+		if (key == NullspaceDimensions.LEVEL_2) return ModSounds.PARKING_DISTANT;
+		return ModSounds.DISTANT;
 	}
 
 	private static BlockPos adjacentWall(ServerWorld world, BlockPos pos) {
@@ -231,7 +341,8 @@ public final class AtmosphereDirector {
 	}
 
 	public static boolean isWall(BlockState state) {
-		return state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE);
+		return state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)
+				|| state.isOf(ModBlocks.PARKING_CONCRETE);
 	}
 
 	private static void playAt(ServerPlayerEntity player, SoundEvent sound, Vec3d at, float volume, float pitch) {

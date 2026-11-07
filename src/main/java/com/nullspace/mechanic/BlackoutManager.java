@@ -61,8 +61,7 @@ public final class BlackoutManager {
 				for (int dy = 1; dy <= 8; dy++) {
 					p.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
 					BlockState s = world.getBlockState(p);
-					if ((s.isOf(ModBlocks.CEILING_LIGHT) || s.isOf(ModBlocks.CEILING_LIGHT_FLICKERING))
-							&& !LOCKED.contains(p.asLong())) {
+					if (offStateFor(s) != null && !LOCKED.contains(p.asLong())) {
 						found.add(p.toImmutable());
 					}
 				}
@@ -104,9 +103,9 @@ public final class BlackoutManager {
 			b.tick++;
 			for (Lamp lamp : b.lamps) {
 				if (b.tick == lamp.offAt()) {
-					BlockState now = b.world.getBlockState(lamp.pos());
-					if (now.isOf(ModBlocks.CEILING_LIGHT) || now.isOf(ModBlocks.CEILING_LIGHT_FLICKERING)) {
-						b.world.setBlockState(lamp.pos(), ModBlocks.CEILING_LIGHT_OFF.getDefaultState(), Block.NOTIFY_ALL);
+					BlockState off = offStateFor(b.world.getBlockState(lamp.pos()));
+					if (off != null) {
+						b.world.setBlockState(lamp.pos(), off, Block.NOTIFY_ALL);
 						if (b.world.getRandom().nextInt(4) == 0) {
 							b.world.playSound(null, lamp.pos(), ModSounds.LAMP_BUZZ, SoundCategory.BLOCKS, 0.5f, 0.7f);
 						}
@@ -125,8 +124,16 @@ public final class BlackoutManager {
 		}
 	}
 
+	/** Во что превращается лампа при обесточивании; null — это не лампа. */
+	private static BlockState offStateFor(BlockState s) {
+		if (s.isOf(ModBlocks.CEILING_LIGHT) || s.isOf(ModBlocks.CEILING_LIGHT_FLICKERING)) return ModBlocks.CEILING_LIGHT_OFF.getDefaultState();
+		if (s.isOf(ModBlocks.SODIUM_LAMP)) return ModBlocks.SODIUM_LAMP_OFF.getDefaultState();
+		return null;
+	}
+
 	private static void restore(ServerWorld world, Lamp lamp) {
-		if (world.getBlockState(lamp.pos()).isOf(ModBlocks.CEILING_LIGHT_OFF)) {
+		BlockState now = world.getBlockState(lamp.pos());
+		if (now.isOf(ModBlocks.CEILING_LIGHT_OFF) || now.isOf(ModBlocks.SODIUM_LAMP_OFF)) {
 			world.setBlockState(lamp.pos(), lamp.original(), Block.NOTIFY_ALL);
 		}
 	}

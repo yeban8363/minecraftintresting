@@ -134,5 +134,56 @@
       "nullspace:drain_engine"
     ],
     "subtitle": "subtitles.nullspace.drain_engine"
+  },
+  "ambient.parking": {
+    "sounds": [
+      "nullspace:parking_ambience"
+    ]
+  },
+  "ambient.concrete_steps": {
+    "sounds": [
+      "nullspace:concrete_step1",
+      "nullspace:concrete_step2",
+      "nullspace:concrete_step3"
+    ],
+    "subtitle": "subtitles.nullspace.concrete_steps"
+  },
+  "ambient.parking_distant": {
+    "sounds": [
+      "nullspace:car_door",
+      "nullspace:engine_start",
+      "nullspace:tire_screech"
+    ],
+    "subtitle": "subtitles.nullspace.parking_distant"
+  },
+  "ambient.car_alarm": {
+    "sounds": [
+      "nullspace:car_alarm"
+    ],
+    "subtitle": "subtitles.nullspace.car_alarm"
+  },
+  "ambient.engine_idle": {
+    "sounds": [
+      "nullspace:engine_idle"
+    ],
+    "subtitle": "subtitles.nullspace.engine_idle"
+  },
+  "ambient.headlight_click": {
+    "sounds": [
+      "nullspace:headlight_click"
+    ],
+    "subtitle": "subtitles.nullspace.headlight_click"
+  },
+  "block.elevator_ding": {
+    "sounds": [
+      "nullspace:elevator_ding"
+    ],
+    "subtitle": "subtitles.nullspace.elevator_ding"
+  },
+  "ambient.mall_music": {
+    "sounds": [
+      "nullspace:mall_music"
+    ],
+    "subtitle": "subtitles.nullspace.mall_music"
   }
 }

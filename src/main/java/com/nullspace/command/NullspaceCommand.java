@@ -24,6 +24,7 @@ import static net.minecraft.server.command.CommandManager.literal;
  *  /nullspace trigger [игрок]  — провал с предвестниками
  *  /nullspace exit [игрок]     — вернуться домой
  *  /nullspace level1 [игрок]   — провалиться на Уровень 1
+ *  /nullspace level2 [игрок]   — провалиться на Уровень 2
  *  /nullspace blackout         — обесточивание
  *  /nullspace run              — бегущие шаги
  *  /nullspace stability <0-100>
@@ -45,6 +46,7 @@ public final class NullspaceCommand {
 									return 1;
 								})))
 				.then(withTarget("level1", NullspaceTeleporter::sendToLevel1))
+				.then(withTarget("level2", NullspaceTeleporter::sendToLevel2))
 				.then(literal("blackout").executes(ctx -> {
 					BlackoutManager.start(ctx.getSource().getPlayerOrThrow(), 20 * 15);
 					return 1;

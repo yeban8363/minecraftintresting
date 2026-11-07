@@ -7,6 +7,8 @@ import com.nullspace.registry.ModSounds;
 import com.nullspace.world.AquaticChunkGenerator;
 import com.nullspace.world.AquaticLayout;
 import com.nullspace.world.NullspaceDimensions;
+import com.nullspace.world.ParkingChunkGenerator;
+import com.nullspace.world.ParkingLayout;
 import com.nullspace.world.OfficeLayout;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -106,6 +108,45 @@ public final class NullspaceTeleporter {
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40, 0, false, false));
 		player.playSoundToPlayer(ModSounds.NOCLIP_FALL, SoundCategory.MASTER, 1.0f, 0.7f);
 		player.sendMessage(Text.translatable("message.nullspace.fell_level1").formatted(Formatting.AQUA), true);
+	}
+
+	/**
+	 * Через слив — на Уровень 2. Игрок оказывается в проезде подземной парковки.
+	 */
+	public static void sendToLevel2(ServerPlayerEntity player) {
+		MinecraftServer server = player.getServer();
+		if (server == null) return;
+		ServerWorld level2 = server.getWorld(NullspaceDimensions.LEVEL_2);
+		if (level2 == null) {
+			NullspaceMod.LOGGER.error("Измерение nullspace:level_2 не загружено");
+			return;
+		}
+		if (!NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey())) {
+			player.setAttached(ModAttachments.RETURN_POINT,
+					new ReturnPoint(player.getWorld().getRegistryKey(), player.getBlockPos()));
+		}
+
+		Random random = player.getRandom();
+		int spread = Math.max(ParkingLayout.SECTION * 4, NullspaceConfig.get().spawnSpread);
+		int sx = (random.nextInt(spread * 2) - spread) / ParkingLayout.SECTION;
+		int sz = (random.nextInt(spread * 2) - spread) / ParkingLayout.SECTION;
+		if (level2.getChunkManager().getChunkGenerator() instanceof ParkingChunkGenerator gen) {
+			int[] section = gen.layout(level2.getChunkManager().getNoiseConfig()).findParking(sx, sz);
+			sx = section[0];
+			sz = section[1];
+		}
+		double x = sx * ParkingLayout.SECTION + 6.5;
+		double z = sz * ParkingLayout.SECTION + 16.0;
+		double y = ParkingLayout.FLOOR_Y + 1;
+
+		cutAllSounds(player);
+		player.teleport(level2, x, y, z, -90f, 0f);
+		player.fallDistance = 0;
+		player.setAir(player.getMaxAir());
+		player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 50, 0, false, false));
+		player.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 120, 0, false, false));
+		player.playSoundToPlayer(ModSounds.NOCLIP_FALL, SoundCategory.MASTER, 1.0f, 0.55f);
+		player.sendMessage(Text.translatable("message.nullspace.fell_level2").formatted(Formatting.GRAY), true);
 	}
 
 	/** Вернуть игрока туда, откуда он провалился. */

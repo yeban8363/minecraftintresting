@@ -30,6 +30,15 @@ public final class ModSounds {
 	public static final SoundEvent BLACKOUT = register("event.blackout");
 	public static final SoundEvent POWER_ON = register("event.power_on");
 	public static final SoundEvent DRAIN_ENGINE = register("block.drain_engine");
+	// 0.4 PARKING
+	public static final SoundEvent PARKING_AMBIENCE = register("ambient.parking");
+	public static final SoundEvent CONCRETE_STEPS = register("ambient.concrete_steps");
+	public static final SoundEvent PARKING_DISTANT = register("ambient.parking_distant");
+	public static final SoundEvent CAR_ALARM = register("ambient.car_alarm");
+	public static final SoundEvent ENGINE_IDLE = register("ambient.engine_idle");
+	public static final SoundEvent HEADLIGHT_CLICK = register("ambient.headlight_click");
+	public static final SoundEvent ELEVATOR_DING = register("block.elevator_ding");
+	public static final SoundEvent MALL_MUSIC = register("ambient.mall_music");
 	/** «Музыка» биома — тишина. Нужна, чтобы в NULLSPACE не играла обычная музыка. */
 	public static final SoundEvent MUSIC_SILENCE = register("music.silence");
 

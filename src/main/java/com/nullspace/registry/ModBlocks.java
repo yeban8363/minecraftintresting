@@ -5,6 +5,7 @@ import com.nullspace.block.AnomalyDoorBlock;
 import com.nullspace.block.ChalkMarkBlock;
 import com.nullspace.block.DampCarpetBlock;
 import com.nullspace.block.DrainBlock;
+import com.nullspace.block.ElevatorBlock;
 import com.nullspace.block.GeneratorBlock;
 import com.nullspace.block.PaperPileBlock;
 import com.nullspace.block.SupplyCrateBlock;
@@ -99,6 +100,30 @@ public final class ModBlocks {
 			new Block(unbreakable(MapColor.LIGHT_BLUE, BlockSoundGroup.GLASS).luminance(state -> 12)));
 	public static final Block DRAIN = register("drain",
 			new DrainBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
+
+	// ---------- Уровень 2 — PARKING ----------
+	public static final Block PARKING_CONCRETE = register("parking_concrete",
+			new Block(unbreakable(MapColor.STONE_GRAY, BlockSoundGroup.STONE)));
+	public static final Block ASPHALT = register("asphalt",
+			new Block(unbreakable(MapColor.DEEPSLATE_GRAY, BlockSoundGroup.STONE)));
+	public static final Block PAINT_WHITE = register("paint_white",
+			new Block(unbreakable(MapColor.WHITE, BlockSoundGroup.STONE)));
+	public static final Block PAINT_YELLOW = register("paint_yellow",
+			new Block(unbreakable(MapColor.YELLOW, BlockSoundGroup.STONE)));
+	public static final Block HAZARD_STRIPE = register("hazard_stripe",
+			new Block(unbreakable(MapColor.YELLOW, BlockSoundGroup.STONE)));
+	public static final Block HEADLIGHT = register("headlight",
+			new Block(unbreakable(MapColor.WHITE, BlockSoundGroup.GLASS).luminance(state -> 12)));
+	public static final Block HEADLIGHT_OFF = register("headlight_off",
+			new Block(unbreakable(MapColor.LIGHT_GRAY, BlockSoundGroup.GLASS)));
+	public static final Block TAILLIGHT = register("taillight",
+			new Block(unbreakable(MapColor.RED, BlockSoundGroup.GLASS).luminance(state -> 4)));
+	public static final Block SODIUM_LAMP = register("sodium_lamp",
+			new Block(unbreakable(MapColor.ORANGE, BlockSoundGroup.GLASS).luminance(state -> 14)));
+	public static final Block SODIUM_LAMP_OFF = register("sodium_lamp_off",
+			new Block(unbreakable(MapColor.BROWN, BlockSoundGroup.GLASS)));
+	public static final Block ELEVATOR = register("elevator",
+			new ElevatorBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
 
 	/** Метка мелом. Без предмета: ставится мелом. */
 	public static final Block CHALK_MARK = registerNoItem("chalk_mark",

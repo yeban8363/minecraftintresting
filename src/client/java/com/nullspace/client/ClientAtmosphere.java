@@ -51,7 +51,12 @@ public final class ClientAtmosphere {
 		if (retryCooldown > 0) retryCooldown--;
 		boolean playing = hum != null && !hum.isDone() && client.getSoundManager().isPlaying(hum);
 		if (!playing && !isSilent() && retryCooldown == 0) {
-			SoundEvent sound = world.getValue().getPath().equals("level_1") ? ModSounds.POOL_AMBIENCE : ModSounds.LAMP_HUM;
+			String path = world.getValue().getPath();
+			SoundEvent sound = switch (path) {
+				case "level_1" -> ModSounds.POOL_AMBIENCE;
+				case "level_2" -> ModSounds.PARKING_AMBIENCE;
+				default -> ModSounds.LAMP_HUM;
+			};
 			hum = new LampHumSound(client.player, sound);
 			client.getSoundManager().play(hum);
 			retryCooldown = 40;

@@ -162,7 +162,9 @@ public final class Hallucinations {
 		Vec3d flat = new Vec3d(look.x, 0, look.z);
 		if (flat.lengthSquared() < 1.0E-4) return;
 		flat = flat.normalize();
-		boolean pools = world.getRegistryKey().getValue().getPath().equals("level_1");
+		String level = world.getRegistryKey().getValue().getPath();
+		boolean pools = level.equals("level_1");
+		boolean parking = level.equals("level_2");
 		for (int d = 6; d <= 10; d++) {
 			BlockPos base = BlockPos.ofFloored(player.getX() + flat.x * d, player.getY(), player.getZ() + flat.z * d);
 			if (!world.getBlockState(base).isAir() || world.getBlockState(base.down()).isAir()) continue;
@@ -172,6 +174,7 @@ public final class Hallucinations {
 			for (int dy = 0; dy < height; dy++) {
 				BlockState state;
 				if (pools) state = (dy == 1 ? ModBlocks.POOL_TILE_BLUE : ModBlocks.POOL_TILE).getDefaultState();
+				else if (parking) state = (dy == 0 ? ModBlocks.HAZARD_STRIPE : ModBlocks.PARKING_CONCRETE).getDefaultState();
 				else state = (dy == 0 ? ModBlocks.OFFICE_WALLPAPER_BASE : ModBlocks.OFFICE_WALLPAPER).getDefaultState();
 				world.setBlockState(base.up(dy), state, Block.NOTIFY_ALL);
 			}
@@ -185,7 +188,8 @@ public final class Hallucinations {
 			BlockPos p = wall.base().up(dy);
 			BlockState state = world.getBlockState(p);
 			if (state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.OFFICE_WALLPAPER_BASE)
-					|| state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)) {
+					|| state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)
+					|| state.isOf(ModBlocks.PARKING_CONCRETE) || state.isOf(ModBlocks.HAZARD_STRIPE)) {
 				world.setBlockState(p, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 			}
 		}
