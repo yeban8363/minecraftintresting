@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "pizdec",
+	"version": "${version}",
+	"name": "Полный Пиздец",
+	"description": "Налоговая каждые 5 минут, платная жизнь, рандомный хаос и Король, который каждую минуту издаёт новый безумный закон.",
+	"authors": ["rrobtop"],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.pizdec.mod.PizdecMod"]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.11",
+		"minecraft": "1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
