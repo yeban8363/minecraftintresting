@@ -185,5 +185,30 @@
       "nullspace:mall_music"
     ],
     "subtitle": "subtitles.nullspace.mall_music"
+  },
+  "ambient.mall": {
+    "sounds": [
+      "nullspace:mall_ambience"
+    ]
+  },
+  "ambient.mall_distant": {
+    "sounds": [
+      "nullspace:cart_rattle",
+      "nullspace:shutter_roll",
+      "nullspace:pa_chime"
+    ],
+    "subtitle": "subtitles.nullspace.mall_distant"
+  },
+  "block.escalator_hum": {
+    "sounds": [
+      "nullspace:escalator_hum"
+    ],
+    "subtitle": "subtitles.nullspace.escalator_hum"
+  },
+  "block.escalator_clunk": {
+    "sounds": [
+      "nullspace:escalator_clunk"
+    ],
+    "subtitle": "subtitles.nullspace.escalator_clunk"
   }
 }

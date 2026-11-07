@@ -6,6 +6,7 @@ import com.nullspace.registry.ModAttachments;
 import com.nullspace.registry.ModSounds;
 import com.nullspace.world.AquaticChunkGenerator;
 import com.nullspace.world.AquaticLayout;
+import com.nullspace.world.MallLayout;
 import com.nullspace.world.NullspaceDimensions;
 import com.nullspace.world.ParkingChunkGenerator;
 import com.nullspace.world.ParkingLayout;
@@ -147,6 +148,33 @@ public final class NullspaceTeleporter {
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 120, 0, false, false));
 		player.playSoundToPlayer(ModSounds.NOCLIP_FALL, SoundCategory.MASTER, 1.0f, 0.55f);
 		player.sendMessage(Text.translatable("message.nullspace.fell_level2").formatted(Formatting.GRAY), true);
+	}
+
+	/** Лифт «M» — на Уровень 3. Двери открываются в галерею первого этажа. */
+	public static void sendToLevel3(ServerPlayerEntity player) {
+		MinecraftServer server = player.getServer();
+		if (server == null) return;
+		ServerWorld level3 = server.getWorld(NullspaceDimensions.LEVEL_3);
+		if (level3 == null) {
+			NullspaceMod.LOGGER.error("Измерение nullspace:level_3 не загружено");
+			return;
+		}
+		if (!NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey())) {
+			player.setAttached(ModAttachments.RETURN_POINT,
+					new ReturnPoint(player.getWorld().getRegistryKey(), player.getBlockPos()));
+		}
+		Random random = player.getRandom();
+		int spread = Math.max(MallLayout.CELL * 4, NullspaceConfig.get().spawnSpread);
+		int cx = (random.nextInt(spread * 2) - spread) / MallLayout.CELL;
+		int cz = (random.nextInt(spread * 2) - spread) / MallLayout.CELL;
+		double[] at = MallLayout.arrival(cx, cz);
+
+		cutAllSounds(player);
+		player.teleport(level3, at[0], at[1], at[2], -90f, 0f);
+		player.fallDistance = 0;
+		player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 30, 0, false, false));
+		player.playSoundToPlayer(ModSounds.ELEVATOR_DING, SoundCategory.MASTER, 1.0f, 1.0f);
+		player.sendMessage(Text.translatable("message.nullspace.fell_level3").formatted(Formatting.LIGHT_PURPLE), true);
 	}
 
 	/** Вернуть игрока туда, откуда он провалился. */

@@ -1,0 +1,80 @@
+{
+  "variants": {
+    "down=false,endless=false,facing=east": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true
+    },
+    "down=false,endless=true,facing=east": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true
+    },
+    "down=true,endless=false,facing=east": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true
+    },
+    "down=true,endless=true,facing=east": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true
+    },
+    "down=false,endless=false,facing=south": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 90
+    },
+    "down=false,endless=true,facing=south": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 90
+    },
+    "down=true,endless=false,facing=south": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 90
+    },
+    "down=true,endless=true,facing=south": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 90
+    },
+    "down=false,endless=false,facing=west": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 180
+    },
+    "down=false,endless=true,facing=west": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 180
+    },
+    "down=true,endless=false,facing=west": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 180
+    },
+    "down=true,endless=true,facing=west": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 180
+    },
+    "down=false,endless=false,facing=north": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 270
+    },
+    "down=false,endless=true,facing=north": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 270
+    },
+    "down=true,endless=false,facing=north": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 270
+    },
+    "down=true,endless=true,facing=north": {
+      "model": "nullspace:block/escalator",
+      "uvlock": true,
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/stairs",
+  "textures": {
+    "bottom": "nullspace:block/escalator_body",
+    "top": "nullspace:block/escalator_top",
+    "side": "nullspace:block/escalator_side"
+  }
+}

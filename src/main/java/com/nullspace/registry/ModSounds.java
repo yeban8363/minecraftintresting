@@ -39,6 +39,11 @@ public final class ModSounds {
 	public static final SoundEvent HEADLIGHT_CLICK = register("ambient.headlight_click");
 	public static final SoundEvent ELEVATOR_DING = register("block.elevator_ding");
 	public static final SoundEvent MALL_MUSIC = register("ambient.mall_music");
+	// 0.5 MALL
+	public static final SoundEvent MALL_AMBIENCE = register("ambient.mall");
+	public static final SoundEvent MALL_DISTANT = register("ambient.mall_distant");
+	public static final SoundEvent ESCALATOR_HUM = register("block.escalator_hum");
+	public static final SoundEvent ESCALATOR_CLUNK = register("block.escalator_clunk");
 	/** «Музыка» биома — тишина. Нужна, чтобы в NULLSPACE не играла обычная музыка. */
 	public static final SoundEvent MUSIC_SILENCE = register("music.silence");
 

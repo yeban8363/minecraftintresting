@@ -17,6 +17,9 @@ public final class NullspaceDimensions {
 	/** Уровень 2 — PARKING. */
 	public static final RegistryKey<World> LEVEL_2 = RegistryKey.of(RegistryKeys.WORLD, NullspaceMod.id("level_2"));
 	public static final RegistryKey<Biome> LEVEL_2_BIOME = RegistryKey.of(RegistryKeys.BIOME, NullspaceMod.id("level_2"));
+	/** Уровень 3 — MALL. */
+	public static final RegistryKey<World> LEVEL_3 = RegistryKey.of(RegistryKeys.WORLD, NullspaceMod.id("level_3"));
+	public static final RegistryKey<Biome> LEVEL_3_BIOME = RegistryKey.of(RegistryKeys.BIOME, NullspaceMod.id("level_3"));
 	/** Стадион за аномальной дверью. */
 	public static final RegistryKey<World> STADIUM = RegistryKey.of(RegistryKeys.WORLD, NullspaceMod.id("stadium"));
 	public static final RegistryKey<Biome> LEVEL_0_BIOME = RegistryKey.of(RegistryKeys.BIOME, NullspaceMod.id("level_0"));
@@ -30,6 +33,7 @@ public final class NullspaceDimensions {
 		Registry.register(Registries.CHUNK_GENERATOR, NullspaceMod.id("stadium"), StadiumChunkGenerator.CODEC);
 		Registry.register(Registries.CHUNK_GENERATOR, NullspaceMod.id("aquatic"), AquaticChunkGenerator.CODEC);
 		Registry.register(Registries.CHUNK_GENERATOR, NullspaceMod.id("parking"), ParkingChunkGenerator.CODEC);
+		Registry.register(Registries.CHUNK_GENERATOR, NullspaceMod.id("mall"), MallChunkGenerator.CODEC);
 	}
 
 	private NullspaceDimensions() {

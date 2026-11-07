@@ -7,7 +7,9 @@ import com.nullspace.registry.ModSounds;
 import com.nullspace.world.NullspaceDimensions;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.BlockState;
+import com.nullspace.block.EscalatorBlock;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
+import net.minecraft.network.packet.s2c.play.StopSoundS2CPacket;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -38,6 +40,8 @@ import java.util.UUID;
  * Стаб. < 50:  кто-то бежит к тебе со спины — и шаги обрываются вплотную.
  * Стаб. < 35:  шёпот твоего ника в чате; «<ты> присоединился к игре».
  *
+ * Уровень 3:   музыка из пустых магазинов (обрывается, если подойти),
+ *              эскалаторы разом меняют направление.
  * Уровень 2:   фары включаются за спиной, сигнализации срабатывают цепочкой,
  *              у пустой машины заводится двигатель.
  *
@@ -61,6 +65,10 @@ public final class AtmosphereDirector {
 		long runSilenceAt;
 		// звуки, запланированные на будущее (цепочка сигнализаций и т.п.)
 		final Deque<Scheduled> queue = new ArrayDeque<>();
+		// музыка из магазина
+		Vec3d musicPos;
+		long musicUntil;
+		long musicRetryAt;
 	}
 
 	private record Scheduled(long at, Vec3d pos, SoundEvent sound, float volume, float pitch) {
@@ -121,6 +129,21 @@ public final class AtmosphereDirector {
 		while (!s.queue.isEmpty() && s.queue.peekFirst().at() <= now) {
 			Scheduled q = s.queue.pollFirst();
 			playAt(player, q.sound(), q.pos(), q.volume(), q.pitch());
+		}
+
+		// --- музыка из магазина обрывается, стоит подойти ---
+		if (s.musicPos != null && now % 10 == 0) {
+			if (now > s.musicUntil) {
+				s.musicPos = null;
+			} else if (s.musicPos.squaredDistanceTo(pos) < 8 * 8) {
+				player.networkHandler.sendPacket(new StopSoundS2CPacket(ModSounds.MALL_MUSIC.getId(), SoundCategory.AMBIENT));
+				s.musicPos = null;
+				s.musicRetryAt = now + 50;
+			}
+		}
+		if (s.musicRetryAt > 0 && now >= s.musicRetryAt) {
+			s.musicRetryAt = 0;
+			startShopMusic(player, s, now, 20);
 		}
 
 		// --- бегущие шаги идут даже сквозь тишину: тишина — их конец ---
@@ -189,6 +212,10 @@ public final class AtmosphereDirector {
 			return;
 		}
 
+		if (player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_3 && random.nextInt(100) < 40) {
+			mallEvent(player, s, random, now);
+			return;
+		}
 		if (player.getWorld().getRegistryKey() == NullspaceDimensions.LEVEL_2 && random.nextInt(100) < 35) {
 			parkingEvent(player, s, random, stability, now);
 			return;
@@ -212,6 +239,68 @@ public final class AtmosphereDirector {
 			startSilence(player, s, 20 * (15 + random.nextInt(25)));
 		}
 		// иначе — ничего. Это тоже событие.
+	}
+
+	// ---------------- торговый центр ----------------
+
+	/**
+	 * События Уровня 3:
+	 *  - из пустого магазина играет музыка; подойдёшь — обрывается и начинает
+	 *    играть в другом, уже за спиной;
+	 *  - эскалаторы рядом разом меняют направление.
+	 */
+	private static void mallEvent(ServerPlayerEntity player, State s, Random random, long now) {
+		int roll = random.nextInt(100);
+		if (roll < 55 && s.musicPos == null && startShopMusic(player, s, now, 12)) return;
+		if (roll < 85 && reverseEscalators(player)) return;
+		Vec3d far = player.getPos().add((random.nextDouble() - 0.5) * 60, 0, (random.nextDouble() - 0.5) * 60);
+		playAt(player, ModSounds.MALL_DISTANT, far, 2.5f, 0.85f + random.nextFloat() * 0.2f);
+	}
+
+	private static boolean startShopMusic(ServerPlayerEntity player, State s, long now, int minDist) {
+		ServerWorld world = player.getServerWorld();
+		BlockPos c = player.getBlockPos();
+		java.util.List<BlockPos> speakers = new java.util.ArrayList<>();
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		for (int dx = -40; dx <= 40; dx++) {
+			for (int dz = -40; dz <= 40; dz++) {
+				for (int dy = 5; dy <= 7; dy++) {
+					p.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+					if (world.getBlockState(p).isOf(ModBlocks.SPEAKER)) {
+						double d = Math.sqrt(p.getSquaredDistance(c));
+						if (d >= minDist) speakers.add(p.toImmutable());
+					}
+				}
+			}
+		}
+		if (speakers.isEmpty()) return false;
+		BlockPos chosen = speakers.get(player.getRandom().nextInt(speakers.size()));
+		s.musicPos = Vec3d.ofCenter(chosen);
+		s.musicUntil = now + 180;
+		playAt(player, ModSounds.MALL_MUSIC, s.musicPos, 2.2f, 0.82f + player.getRandom().nextFloat() * 0.1f);
+		return true;
+	}
+
+	private static boolean reverseEscalators(ServerPlayerEntity player) {
+		ServerWorld world = player.getServerWorld();
+		BlockPos c = player.getBlockPos();
+		BlockPos.Mutable p = new BlockPos.Mutable();
+		BlockPos first = null;
+		for (int dx = -24; dx <= 24; dx++) {
+			for (int dz = -24; dz <= 24; dz++) {
+				for (int dy = -8; dy <= 8; dy++) {
+					p.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+					BlockState state = world.getBlockState(p);
+					if (state.isOf(ModBlocks.ESCALATOR)) {
+						world.setBlockState(p, state.with(EscalatorBlock.DOWN, !state.get(EscalatorBlock.DOWN)));
+						if (first == null) first = p.toImmutable();
+					}
+				}
+			}
+		}
+		if (first == null) return false;
+		playAt(player, ModSounds.ESCALATOR_CLUNK, Vec3d.ofCenter(first), 1.5f, 0.8f);
+		return true;
 	}
 
 	// ---------------- парковка ----------------
@@ -321,7 +410,7 @@ public final class AtmosphereDirector {
 	private static SoundEvent stepsSound(ServerPlayerEntity player) {
 		var key = player.getWorld().getRegistryKey();
 		if (key == NullspaceDimensions.LEVEL_1) return ModSounds.WET_STEPS;
-		if (key == NullspaceDimensions.LEVEL_2) return ModSounds.CONCRETE_STEPS;
+		if (key == NullspaceDimensions.LEVEL_2 || key == NullspaceDimensions.LEVEL_3) return ModSounds.CONCRETE_STEPS;
 		return ModSounds.STEPS_BEHIND_WALL;
 	}
 
@@ -329,6 +418,7 @@ public final class AtmosphereDirector {
 		var key = player.getWorld().getRegistryKey();
 		if (key == NullspaceDimensions.LEVEL_1) return ModSounds.WATER_DISTANT;
 		if (key == NullspaceDimensions.LEVEL_2) return ModSounds.PARKING_DISTANT;
+		if (key == NullspaceDimensions.LEVEL_3) return ModSounds.MALL_DISTANT;
 		return ModSounds.DISTANT;
 	}
 
@@ -342,7 +432,7 @@ public final class AtmosphereDirector {
 
 	public static boolean isWall(BlockState state) {
 		return state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)
-				|| state.isOf(ModBlocks.PARKING_CONCRETE);
+				|| state.isOf(ModBlocks.PARKING_CONCRETE) || state.isOf(ModBlocks.MALL_WALL);
 	}
 
 	private static void playAt(ServerPlayerEntity player, SoundEvent sound, Vec3d at, float volume, float pitch) {

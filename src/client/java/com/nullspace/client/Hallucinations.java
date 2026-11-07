@@ -165,6 +165,7 @@ public final class Hallucinations {
 		String level = world.getRegistryKey().getValue().getPath();
 		boolean pools = level.equals("level_1");
 		boolean parking = level.equals("level_2");
+		boolean mall = level.equals("level_3");
 		for (int d = 6; d <= 10; d++) {
 			BlockPos base = BlockPos.ofFloored(player.getX() + flat.x * d, player.getY(), player.getZ() + flat.z * d);
 			if (!world.getBlockState(base).isAir() || world.getBlockState(base.down()).isAir()) continue;
@@ -175,6 +176,7 @@ public final class Hallucinations {
 				BlockState state;
 				if (pools) state = (dy == 1 ? ModBlocks.POOL_TILE_BLUE : ModBlocks.POOL_TILE).getDefaultState();
 				else if (parking) state = (dy == 0 ? ModBlocks.HAZARD_STRIPE : ModBlocks.PARKING_CONCRETE).getDefaultState();
+				else if (mall) state = ModBlocks.MALL_WALL.getDefaultState();
 				else state = (dy == 0 ? ModBlocks.OFFICE_WALLPAPER_BASE : ModBlocks.OFFICE_WALLPAPER).getDefaultState();
 				world.setBlockState(base.up(dy), state, Block.NOTIFY_ALL);
 			}
@@ -189,7 +191,8 @@ public final class Hallucinations {
 			BlockState state = world.getBlockState(p);
 			if (state.isOf(ModBlocks.OFFICE_WALLPAPER) || state.isOf(ModBlocks.OFFICE_WALLPAPER_BASE)
 					|| state.isOf(ModBlocks.POOL_TILE) || state.isOf(ModBlocks.POOL_TILE_BLUE)
-					|| state.isOf(ModBlocks.PARKING_CONCRETE) || state.isOf(ModBlocks.HAZARD_STRIPE)) {
+					|| state.isOf(ModBlocks.PARKING_CONCRETE) || state.isOf(ModBlocks.HAZARD_STRIPE)
+					|| state.isOf(ModBlocks.MALL_WALL)) {
 				world.setBlockState(p, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 			}
 		}

@@ -4,7 +4,10 @@ import com.nullspace.NullspaceMod;
 import com.nullspace.block.AnomalyDoorBlock;
 import com.nullspace.block.ChalkMarkBlock;
 import com.nullspace.block.DampCarpetBlock;
+import com.nullspace.block.CinemaScreenBlock;
 import com.nullspace.block.DrainBlock;
+import com.nullspace.block.EscalatorBlock;
+import com.nullspace.block.MallMapBlock;
 import com.nullspace.block.ElevatorBlock;
 import com.nullspace.block.GeneratorBlock;
 import com.nullspace.block.PaperPileBlock;
@@ -124,6 +127,30 @@ public final class ModBlocks {
 			new Block(unbreakable(MapColor.BROWN, BlockSoundGroup.GLASS)));
 	public static final Block ELEVATOR = register("elevator",
 			new ElevatorBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
+
+	// ---------- Уровень 3 — MALL ----------
+	public static final Block MALL_FLOOR = register("mall_floor",
+			new Block(unbreakable(MapColor.OFF_WHITE, BlockSoundGroup.STONE)));
+	public static final Block MALL_FLOOR_DARK = register("mall_floor_dark",
+			new Block(unbreakable(MapColor.TERRACOTTA_WHITE, BlockSoundGroup.STONE)));
+	public static final Block MALL_WALL = register("mall_wall",
+			new Block(unbreakable(MapColor.WHITE, BlockSoundGroup.STONE)));
+	public static final Block SHOP_SIGN = register("shop_sign",
+			new Block(unbreakable(MapColor.PINK, BlockSoundGroup.GLASS).luminance(state -> 11)));
+	public static final Block ROLLER_SHUTTER = register("roller_shutter",
+			new Block(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
+	public static final Block TV_STATIC = register("tv_static",
+			new Block(unbreakable(MapColor.GRAY, BlockSoundGroup.GLASS).luminance(state -> 7)));
+	public static final Block CINEMA_SCREEN = register("cinema_screen",
+			new CinemaScreenBlock(unbreakable(MapColor.WHITE, BlockSoundGroup.WOOL).luminance(state -> 9)));
+	public static final Block SPEAKER = register("speaker",
+			new Block(unbreakable(MapColor.GRAY, BlockSoundGroup.METAL)));
+	public static final Block ESCALATOR = register("escalator",
+			new EscalatorBlock(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL).nonOpaque()));
+	public static final Block ESCALATOR_BODY = register("escalator_body",
+			new Block(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
+	public static final Block MALL_MAP = register("mall_map",
+			new MallMapBlock(unbreakable(MapColor.BLUE, BlockSoundGroup.GLASS).luminance(state -> 6)));
 
 	/** Метка мелом. Без предмета: ставится мелом. */
 	public static final Block CHALK_MARK = registerNoItem("chalk_mark",

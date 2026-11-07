@@ -55,6 +55,7 @@ public final class ClientAtmosphere {
 			SoundEvent sound = switch (path) {
 				case "level_1" -> ModSounds.POOL_AMBIENCE;
 				case "level_2" -> ModSounds.PARKING_AMBIENCE;
+				case "level_3" -> ModSounds.MALL_AMBIENCE;
 				default -> ModSounds.LAMP_HUM;
 			};
 			hum = new LampHumSound(client.player, sound);
