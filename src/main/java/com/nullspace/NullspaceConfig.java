@@ -37,6 +37,8 @@ public class NullspaceConfig {
 	public int exitRarity = 2500;
 	/** Шанс аномальной двери (в стадион) на отрезке стены (1 / anomalyDoorRarity). */
 	public int anomalyDoorRarity = 450;
+	/** Строить ли на Уровне 0 «копию дома» — комнату из блоков места, откуда ты упал. */
+	public boolean baseCopy = true;
 	/** Включить ли события атмосферы (шаги, стук, тишина). */
 	public boolean atmosphere = true;
 

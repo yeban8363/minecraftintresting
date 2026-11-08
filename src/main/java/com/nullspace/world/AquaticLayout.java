@@ -217,6 +217,30 @@ public final class AquaticLayout {
 		return null;
 	}
 
+	/** Ближайшая дверь EXIT в радиусе radius блоков, или null. */
+	public net.minecraft.util.math.BlockPos nearestExit(int x, int z, int radius) {
+		int chx = Math.floorDiv(x, HALL), chz = Math.floorDiv(z, HALL);
+		int r = radius / HALL;
+		long best = Long.MAX_VALUE;
+		int bx = 0, bz = 0;
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				int hx = chx + dx, hz = chz + dz;
+				if (wallV(hx, hz) && exitV(hx, hz)) {
+					int ex = hx * HALL, ez = hz * HALL + 13;
+					long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+					if (d < best) { best = d; bx = ex; bz = ez; }
+				}
+				if (wallH(hx, hz) && exitH(hx, hz)) {
+					int ex = hx * HALL + 13, ez = hz * HALL;
+					long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+					if (d < best) { best = d; bx = ex; bz = ez; }
+				}
+			}
+		}
+		return best == Long.MAX_VALUE ? null : new net.minecraft.util.math.BlockPos(bx, FLOOR_Y + 1, bz);
+	}
+
 	/** Центр зала с водой — сюда падают с Уровня 0. */
 	public int[] findPoolHall(int startHx, int startHz) {
 		for (int r = 0; r < 64; r++) {

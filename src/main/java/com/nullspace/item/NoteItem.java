@@ -23,7 +23,7 @@ import java.util.function.BiConsumer;
  */
 public class NoteItem extends Item {
 	/** Сколько страниц в каждой записке. Номер записки = индекс. */
-	public static final int[] PAGES = {2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 2};
+	public static final int[] PAGES = {2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2};
 
 	/** Открывает экран чтения. Подставляется клиентом; на сервере ничего не делает. */
 	public static BiConsumer<ItemStack, PlayerEntity> opener = (stack, player) -> {

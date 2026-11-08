@@ -18,6 +18,7 @@ import com.nullspace.block.GlowBlock;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.MapColor;
+import net.minecraft.block.TransparentBlock;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
@@ -151,6 +152,14 @@ public final class ModBlocks {
 			new Block(unbreakable(MapColor.IRON_GRAY, BlockSoundGroup.METAL)));
 	public static final Block MALL_MAP = register("mall_map",
 			new MallMapBlock(unbreakable(MapColor.BLUE, BlockSoundGroup.GLASS).luminance(state -> 6)));
+
+	/** Окно в стене Уровня 0. За ним — ты сам, со спины. */
+	public static final Block ODD_WINDOW = register("odd_window",
+			new TransparentBlock(unbreakable(MapColor.CLEAR, BlockSoundGroup.GLASS)
+					.nonOpaque()
+					.solidBlock((state, world, pos) -> false)
+					.suffocates((state, world, pos) -> false)
+					.blockVision((state, world, pos) -> false)));
 
 	/** Метка мелом. Без предмета: ставится мелом. */
 	public static final Block CHALK_MARK = registerNoItem("chalk_mark",

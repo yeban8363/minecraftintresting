@@ -210,5 +210,33 @@
       "nullspace:escalator_clunk"
     ],
     "subtitle": "subtitles.nullspace.escalator_clunk"
+  },
+  "item.radio.static": {
+    "sounds": [
+      "nullspace:radio_static"
+    ]
+  },
+  "item.radio.tune": {
+    "sounds": [
+      "nullspace:radio_tune"
+    ],
+    "subtitle": "subtitles.nullspace.radio_tune"
+  },
+  "item.radio.beep": {
+    "sounds": [
+      "nullspace:radio_beep"
+    ]
+  },
+  "item.radio.voice": {
+    "sounds": [
+      "nullspace:radio_voice"
+    ],
+    "subtitle": "subtitles.nullspace.radio_voice"
+  },
+  "item.radio.home": {
+    "sounds": [
+      "nullspace:radio_home"
+    ],
+    "subtitle": "subtitles.nullspace.radio_home"
   }
 }

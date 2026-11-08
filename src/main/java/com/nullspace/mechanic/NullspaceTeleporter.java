@@ -48,7 +48,9 @@ public final class NullspaceTeleporter {
 		}
 
 		boolean alreadyInside = NullspaceDimensions.isNullspace(player.getWorld().getRegistryKey());
+		net.minecraft.block.BlockState[][][] memory = null;
 		if (!alreadyInside) {
+			memory = BaseMemory.capture(player.getWorld(), player.getBlockPos());
 			player.setAttached(ModAttachments.RETURN_POINT,
 					new ReturnPoint(player.getWorld().getRegistryKey(), player.getBlockPos()));
 			leaveTrace(player);
@@ -64,6 +66,12 @@ public final class NullspaceTeleporter {
 
 		cutAllSounds(player);
 		player.teleport(level0, x, y, z, player.getYaw(), 20.0f);
+		if (memory != null) {
+			// Где-то рядом пространство собрало копию того места, откуда ты упал.
+			int roomCx = cx + (random.nextBoolean() ? 6 + random.nextInt(3) : -9 - random.nextInt(3));
+			int roomCz = cz - 1 + random.nextInt(3) - 1;
+			BaseMemory.build(level0, roomCx, roomCz, memory, random);
+		}
 		player.fallDistance = 0;
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 50, 0, false, false));
 		player.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 120, 0, false, false));

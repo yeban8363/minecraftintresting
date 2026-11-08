@@ -4,7 +4,9 @@ import com.nullspace.NullspaceConfig;
 import com.nullspace.NullspaceMod;
 import com.nullspace.item.BatteryItem;
 import com.nullspace.item.ChalkItem;
+import com.nullspace.item.LevelMapItem;
 import com.nullspace.item.NoteItem;
+import com.nullspace.item.RadioItem;
 import com.nullspace.item.ThermosItem;
 import com.nullspace.item.FlashlightItem;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
@@ -36,6 +38,14 @@ public final class ModItems {
 	public static final Item CHALK = register("chalk",
 			new ChalkItem(new Item.Settings().maxDamage(48)));
 
+	public static final Item RADIO = register("radio",
+			new RadioItem(new Item.Settings().maxDamage(900)
+					.component(ModComponents.RADIO_ON, false)
+					.component(ModComponents.RADIO_FREQ, 0)));
+
+	public static final Item LEVEL_MAP = register("level_map",
+			new LevelMapItem(new Item.Settings().maxCount(1)));
+
 	public static final ItemGroup GROUP = Registry.register(Registries.ITEM_GROUP, NullspaceMod.id("main"),
 			FabricItemGroup.builder()
 					.icon(() -> new ItemStack(FLASHLIGHT))
@@ -45,6 +55,8 @@ public final class ModItems {
 						entries.add(BATTERY);
 						entries.add(THERMOS);
 						entries.add(CHALK);
+						entries.add(RADIO);
+						entries.add(LEVEL_MAP);
 						for (int i = 0; i < NoteItem.PAGES.length; i++) {
 							entries.add(NoteItem.create(i));
 						}

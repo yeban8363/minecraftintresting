@@ -60,7 +60,8 @@ public class FlashlightItem extends Item {
 		return TypedActionResult.success(stack, false);
 	}
 
-	private static void insertBattery(World world, PlayerEntity user, ItemStack flashlight) {
+	/** Вставить батарейку из инвентаря в прибор (фонарик или радио). */
+	public static void insertBattery(World world, PlayerEntity user, ItemStack flashlight) {
 		ItemStack battery = findBattery(user);
 		if (battery.isEmpty()) {
 			user.sendMessage(Text.translatable("message.nullspace.no_battery").formatted(Formatting.GRAY), true);

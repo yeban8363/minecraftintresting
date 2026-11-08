@@ -9,7 +9,6 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.sound.SoundCategory;
@@ -42,19 +41,6 @@ public final class Hallucinations {
 
 	private static final List<FakeWall> WALLS = new ArrayList<>();
 	private static int ticks;
-
-	/** Двойник с твоим скином. */
-	private static final class Doppelganger extends OtherClientPlayerEntity {
-		Doppelganger(ClientWorld world, GameProfile profile) {
-			super(world, profile);
-		}
-
-		@Override
-		public SkinTextures getSkinTextures() {
-			ClientPlayerEntity me = MinecraftClient.getInstance().player;
-			return me != null ? me.getSkinTextures() : super.getSkinTextures();
-		}
-	}
 
 	public static void tick(MinecraftClient client) {
 		ticks++;

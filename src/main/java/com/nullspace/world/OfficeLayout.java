@@ -43,7 +43,7 @@ public final class OfficeLayout {
 		}
 	}
 
-	private enum Column { OPEN, WALL, EXIT, DOOR }
+	private enum Column { OPEN, WALL, EXIT, DOOR, WINDOW }
 
 	private static final BlockState AIR = Blocks.AIR.getDefaultState();
 
@@ -116,6 +116,85 @@ public final class OfficeLayout {
 		return rand(cx, cz, 24) * NullspaceConfig.get().anomalyDoorRarity < 1.0;
 	}
 
+	private boolean windowV(int cx, int cz) {
+		return rand(cx, cz, 25) * 300 < 1.0;
+	}
+
+	private boolean windowH(int cx, int cz) {
+		return rand(cx, cz, 26) * 300 < 1.0;
+	}
+
+	// ---------- коридор-петля ----------
+
+	public static final int LOOP_FROM = 6, LOOP_TO = 54, LOOP_WALL_N = 28, LOOP_WALL_S = 32;
+	public static final int LOOP_TRIGGER = 38, LOOP_JUMP = 20;
+
+	/** В этой зоне 60×60 есть коридор-петля (идёт вдоль x, z = 29..31 от начала зоны). */
+	public boolean loopZone(int zx, int zz) {
+		return rand(zx, zz, 200) < 0.06;
+	}
+
+	public static int zoneSize() {
+		return ZONE * CELL;
+	}
+
+	/** Столбец коридора-петли или null, если (x, z) вне петли. */
+	private BlockState[] loopColumn(int x, int z) {
+		int size = zoneSize();
+		int zx = Math.floorDiv(x, size), zz = Math.floorDiv(z, size);
+		if (!loopZone(zx, zz)) return null;
+		int lx = x - zx * size, lz = z - zz * size;
+
+		boolean corridor = lx >= LOOP_FROM && lx <= LOOP_TO && lz >= LOOP_WALL_N && lz <= LOOP_WALL_S;
+		boolean ends = (lx == LOOP_FROM - 2 || lx == LOOP_FROM - 1 || lx == LOOP_TO + 1 || lx == LOOP_TO + 2)
+				&& lz > LOOP_WALL_N && lz < LOOP_WALL_S;
+		if (!corridor && !ends) return null;
+
+		BlockState[] s = new BlockState[HEIGHT];
+		BlockState sub = ModBlocks.SUBFLOOR.getDefaultState();
+		for (int y = 0; y < HEIGHT; y++) s[y] = sub;
+		s[FLOOR_Y] = ModBlocks.OFFICE_CARPET.getDefaultState();
+		s[CEILING_Y] = ModBlocks.CEILING_TILE.getDefaultState();
+
+		boolean wall = corridor && (lz == LOOP_WALL_N || lz == LOOP_WALL_S);
+		if (wall) {
+			s[FLOOR_Y + 1] = ModBlocks.OFFICE_WALLPAPER_BASE.getDefaultState();
+			for (int y = FLOOR_Y + 2; y < CEILING_Y; y++) s[y] = ModBlocks.OFFICE_WALLPAPER.getDefaultState();
+		} else {
+			for (int y = FLOOR_Y + 1; y < CEILING_Y; y++) s[y] = AIR;
+			if (corridor && lz == (LOOP_WALL_N + LOOP_WALL_S) / 2 && lx % 5 == 0) {
+				s[CEILING_Y] = ModBlocks.CEILING_LIGHT.getDefaultState();
+			}
+		}
+		return s;
+	}
+
+	// ---------- поиск выхода (для радио) ----------
+
+	/** Ближайшая дверь EXIT в радиусе radius блоков, или null. */
+	public net.minecraft.util.math.BlockPos nearestExit(int x, int z, int radius) {
+		int ccx = Math.floorDiv(x, CELL), ccz = Math.floorDiv(z, CELL);
+		int r = radius / CELL;
+		long best = Long.MAX_VALUE;
+		int bx = 0, bz = 0;
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				int cx = ccx + dx, cz = ccz + dz;
+				if (wallV(cx, cz) && gapV(cx, cz) < 0 && exitV(cx, cz)) {
+					int ex = cx * CELL, ez = cz * CELL + 2;
+					long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+					if (d < best) { best = d; bx = ex; bz = ez; }
+				}
+				if (wallH(cx, cz) && gapH(cx, cz) < 0 && exitH(cx, cz)) {
+					int ex = cx * CELL + 2, ez = cz * CELL;
+					long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+					if (d < best) { best = d; bx = ex; bz = ez; }
+				}
+			}
+		}
+		return best == Long.MAX_VALUE ? null : new net.minecraft.util.math.BlockPos(bx, FLOOR_Y + 1, bz);
+	}
+
 	private Column columnAt(int x, int z) {
 		int cx = Math.floorDiv(x, CELL), lx = Math.floorMod(x, CELL);
 		int cz = Math.floorDiv(z, CELL), lz = Math.floorMod(z, CELL);
@@ -131,6 +210,7 @@ public final class OfficeLayout {
 			int g = gapV(cx, cz);
 			if (g >= 0) return (lz == g || lz == g + 1) ? Column.OPEN : Column.WALL;
 			if (lz == 2 && exitV(cx, cz)) return Column.EXIT;
+			if (lz == 1 && windowV(cx, cz)) return Column.WINDOW;
 			return (lz == 3 && doorV(cx, cz)) ? Column.DOOR : Column.WALL;
 		}
 		if (lz == 0) {
@@ -138,6 +218,7 @@ public final class OfficeLayout {
 			int g = gapH(cx, cz);
 			if (g >= 0) return (lx == g || lx == g + 1) ? Column.OPEN : Column.WALL;
 			if (lx == 2 && exitH(cx, cz)) return Column.EXIT;
+			if (lx == 1 && windowH(cx, cz)) return Column.WINDOW;
 			return (lx == 3 && doorH(cx, cz)) ? Column.DOOR : Column.WALL;
 		}
 		return Column.OPEN;
@@ -185,6 +266,9 @@ public final class OfficeLayout {
 
 	/** Полный столбец блоков от y = 0 до TOP_Y включительно. */
 	public BlockState[] column(int x, int z) {
+		BlockState[] loop = loopColumn(x, z);
+		if (loop != null) return loop;
+
 		BlockState[] states = new BlockState[HEIGHT];
 		BlockState subfloor = ModBlocks.SUBFLOOR.getDefaultState();
 		for (int y = 0; y < FLOOR_Y; y++) states[y] = subfloor;
@@ -204,6 +288,11 @@ public final class OfficeLayout {
 				states[FLOOR_Y + 1] = ModBlocks.EXIT_DOOR.getDefaultState();
 				states[FLOOR_Y + 2] = ModBlocks.EXIT_DOOR.getDefaultState();
 				states[FLOOR_Y + 3] = ModBlocks.EXIT_SIGN.getDefaultState();
+			}
+			case WINDOW -> {
+				states[FLOOR_Y + 1] = ModBlocks.OFFICE_WALLPAPER_BASE.getDefaultState();
+				states[FLOOR_Y + 2] = ModBlocks.ODD_WINDOW.getDefaultState();
+				states[FLOOR_Y + 3] = ModBlocks.ODD_WINDOW.getDefaultState();
 			}
 			case DOOR -> {
 				states[FLOOR_Y + 1] = ModBlocks.ANOMALY_DOOR.getDefaultState();

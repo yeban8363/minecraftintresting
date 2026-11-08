@@ -2,6 +2,7 @@ package com.nullspace.client;
 
 import com.nullspace.NullspaceMod;
 import com.nullspace.item.FlashlightItem;
+import com.nullspace.item.LevelMapItem;
 import com.nullspace.item.NoteItem;
 import com.nullspace.network.SilencePayload;
 import com.nullspace.network.StabilityPayload;
@@ -10,7 +11,9 @@ import com.nullspace.registry.ModItems;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
 import net.minecraft.client.render.RenderLayer;
@@ -23,8 +26,11 @@ public class NullspaceClient implements ClientModInitializer {
 				(stack, world, entity, seed) -> FlashlightItem.isOn(stack) ? 1.0f : 0.0f);
 
 		BlockRenderLayerMap.INSTANCE.putBlocks(RenderLayer.getCutout(), ModBlocks.CHALK_MARK, ModBlocks.PAPER_PILE);
+		BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.ODD_WINDOW, RenderLayer.getTranslucent());
 
 		NoteItem.opener = NoteScreens::open;
+		LevelMapItem.opener = () -> MinecraftClient.getInstance().setScreen(new MapScreen());
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientMapMemory.clear());
 
 		ClientPlayNetworking.registerGlobalReceiver(SilencePayload.ID,
 				(payload, context) -> ClientAtmosphere.silence(payload.ticks()));
@@ -35,6 +41,8 @@ public class NullspaceClient implements ClientModInitializer {
 			ClientAtmosphere.tick(client);
 			ClientStability.tick(client);
 			Hallucinations.tick(client);
+			WindowMirror.tick(client);
+			ClientMapMemory.tick(client);
 		});
 
 		HudRenderCallback.EVENT.register(ClientStability::renderHud);

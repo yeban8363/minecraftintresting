@@ -20,6 +20,18 @@ public final class ModComponents {
 			NullspaceMod.id("note_id"),
 			ComponentType.<Integer>builder().codec(Codec.INT).packetCodec(PacketCodecs.VAR_INT).build());
 
+	/** Радио включено. */
+	public static final ComponentType<Boolean> RADIO_ON = Registry.register(
+			Registries.DATA_COMPONENT_TYPE,
+			NullspaceMod.id("radio_on"),
+			ComponentType.<Boolean>builder().codec(Codec.BOOL).packetCodec(PacketCodecs.BOOL).build());
+
+	/** Номер частоты радио. */
+	public static final ComponentType<Integer> RADIO_FREQ = Registry.register(
+			Registries.DATA_COMPONENT_TYPE,
+			NullspaceMod.id("radio_freq"),
+			ComponentType.<Integer>builder().codec(Codec.INT).packetCodec(PacketCodecs.VAR_INT).build());
+
 	public static void register() {
 	}
 

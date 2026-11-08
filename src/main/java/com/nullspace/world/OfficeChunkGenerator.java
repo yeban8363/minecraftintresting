@@ -39,7 +39,7 @@ public class OfficeChunkGenerator extends ChunkGenerator {
 	}
 
 	/** Сид мира достаётся через NoiseConfig: так планировка у каждого мира своя. */
-	private OfficeLayout layout(NoiseConfig noiseConfig) {
+	public OfficeLayout layout(NoiseConfig noiseConfig) {
 		OfficeLayout l = layout;
 		if (l == null) {
 			long seed = noiseConfig.getOrCreateRandomDeriver(NullspaceMod.id("office_layout")).split(0, 0, 0).nextLong();

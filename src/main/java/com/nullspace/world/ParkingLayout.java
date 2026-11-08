@@ -226,6 +226,36 @@ public final class ParkingLayout {
 		if ((lx == 12 || lx == 19) && (lz == 12 || lz == 19)) s[FLOOR_Y] = ModBlocks.PAINT_YELLOW.getDefaultState();
 	}
 
+	/** Ближайшая дверь EXIT (в стенах тоннелей) в радиусе radius блоков, или null. */
+	public net.minecraft.util.math.BlockPos nearestExit(int x, int z, int radius) {
+		int csx = Math.floorDiv(x, SECTION), csz = Math.floorDiv(z, SECTION);
+		int r = radius / SECTION;
+		int rarity = Math.max(1, NullspaceConfig.get().exitRarity / 8);
+		long best = Long.MAX_VALUE;
+		int bx = 0, bz = 0;
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				int sx = csx + dx, sz = csz + dz;
+				Section sec = sectionAt(sx, sz);
+				for (int side = 0; side < 2; side++) {
+					int ex, ez;
+					if (sec == Section.TUNNEL_EW && rand(sx, sz * 2 + side, 73) * rarity < 1.0) {
+						ex = sx * SECTION + 20;
+						ez = sz * SECTION + (side == 0 ? 11 : 20);
+					} else if (sec == Section.TUNNEL_NS && rand(sz, sx * 2 + side, 73) * rarity < 1.0) {
+						ex = sx * SECTION + (side == 0 ? 11 : 20);
+						ez = sz * SECTION + 20;
+					} else {
+						continue;
+					}
+					long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+					if (d < best) { best = d; bx = ex; bz = ez; }
+				}
+			}
+		}
+		return best == Long.MAX_VALUE ? null : new net.minecraft.util.math.BlockPos(bx, FLOOR_Y + 1, bz);
+	}
+
 	/** Секция парковки рядом с заданной — сюда падают через слив. */
 	public int[] findParking(int sx, int sz) {
 		for (int r = 0; r < 16; r++) {

@@ -44,6 +44,12 @@ public final class ModSounds {
 	public static final SoundEvent MALL_DISTANT = register("ambient.mall_distant");
 	public static final SoundEvent ESCALATOR_HUM = register("block.escalator_hum");
 	public static final SoundEvent ESCALATOR_CLUNK = register("block.escalator_clunk");
+	// 0.6 «Сигнал»
+	public static final SoundEvent RADIO_STATIC = register("item.radio.static");
+	public static final SoundEvent RADIO_TUNE = register("item.radio.tune");
+	public static final SoundEvent RADIO_BEEP = register("item.radio.beep");
+	public static final SoundEvent RADIO_VOICE = register("item.radio.voice");
+	public static final SoundEvent RADIO_HOME = register("item.radio.home");
 	/** «Музыка» биома — тишина. Нужна, чтобы в NULLSPACE не играла обычная музыка. */
 	public static final SoundEvent MUSIC_SILENCE = register("music.silence");
 

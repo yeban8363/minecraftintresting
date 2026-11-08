@@ -380,6 +380,33 @@ public final class MallLayout {
 		if (u % 6 == 3 && v % 6 == 3) s[F1] = ModBlocks.CEILING_LIGHT_OFF.getDefaultState();
 	}
 
+	/** Ближайшая служебная дверь EXIT в радиусе radius блоков, или null. */
+	public net.minecraft.util.math.BlockPos nearestExit(int x, int z, int radius) {
+		int ccx = Math.floorDiv(x, CELL), ccz = Math.floorDiv(z, CELL);
+		int r = radius / CELL + 1;
+		int rarity = Math.max(1, NullspaceConfig.get().exitRarity / 6);
+		long best = Long.MAX_VALUE;
+		int bx = 0, by = 0, bz = 0;
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				int cx = ccx + dx, cz = ccz + dz;
+				for (int floor = 0; floor < 2; floor++) {
+					if (floor == 0 && cellAt(cx, cz) != Cell.STANDARD) continue;
+					for (int q = 0; q < 4; q++) {
+						if (storeAt(cx, cz, q, floor) != Store.EMPTY) continue;
+						int salt = floor == 0 ? q : q + 4;
+						if (rand(cx * 8 + salt, cz, 9) * rarity >= 1.0) continue;
+						int ex = cx * CELL + ((q & 1) == 0 ? 0 : 47);
+						int ez = cz * CELL + ((q & 2) == 0 ? 9 : 38);
+						long d = (long) (ex - x) * (ex - x) + (long) (ez - z) * (ez - z);
+						if (d < best) { best = d; bx = ex; bz = ez; by = (floor == 0 ? F0 : F1) + 1; }
+					}
+				}
+			}
+		}
+		return best == Long.MAX_VALUE ? null : new net.minecraft.util.math.BlockPos(bx, by, bz);
+	}
+
 	/** Точка прибытия на лифте — галерея первого этажа. */
 	public static double[] arrival(int cx, int cz) {
 		return new double[]{cx * CELL + 36.5, F0 + 1, cz * CELL + 19.5};

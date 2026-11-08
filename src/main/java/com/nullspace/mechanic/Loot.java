@@ -17,6 +17,8 @@ public final class Loot {
 		if (r.nextFloat() < 0.30f) out.add(new ItemStack(ModItems.CHALK));
 		if (r.nextFloat() < 0.45f) out.add(NoteItem.random(r));
 		if (r.nextFloat() < 0.06f) out.add(new ItemStack(ModItems.FLASHLIGHT));
+		if (r.nextFloat() < 0.07f) out.add(new ItemStack(ModItems.RADIO));
+		if (r.nextFloat() < 0.07f) out.add(new ItemStack(ModItems.LEVEL_MAP));
 		if (out.isEmpty()) out.add(new ItemStack(ModItems.BATTERY));
 		return out;
 	}
